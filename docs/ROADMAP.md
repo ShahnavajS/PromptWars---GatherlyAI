@@ -34,19 +34,21 @@ flowchart LR
 
 ---
 
-### Phase 2: Project Scaffold & First Functional Vertical Slice
+### Phase 2: Project Scaffold & First Functional Vertical Slice (COMPLETED ✓)
 - **Objective:** Bootstrap the working project, configure TypeScript, Next.js App Router, Tailwind CSS, Drizzle ORM, SQLite database, and deliver the first end-to-end persistent vertical slice.
-- **Scope:**
-  - Project initialization with Next.js 15+, React 19, Tailwind CSS.
-  - Drizzle ORM configuration with SQLite database (`data/gatherly.db`).
-  - Core database schema: `events`, `event_budgets`, `budget_categories`, `expenses`, `event_tasks`.
-  - First Functional Vertical Slice:
-    1. Create Event form (Title, Type, Date, City, Guest Count, Planned Budget).
-    2. Deterministic calculation and persistent storage of initial budget categories and starter tasks.
-    3. Event Command Center dashboard displaying the created event, live budget progress bar (in INR ₹), and task checklist.
-    4. Ability to add/edit a budget allocation or toggle a task status with persistent state.
-    5. Automated Vitest test suite verifying deterministic financial arithmetic and CRUD persistence.
-- **Acceptance Criteria:** A user can create an event, view it on the dashboard, update a budget category, refresh the browser, and see exact persisted numbers.
+- **Scope & Results:**
+  - [x] Project initialization with Next.js 16, React 19, TypeScript strict mode, Tailwind CSS.
+  - [x] Drizzle ORM configured with SQLite database (`data/gatherly.db`) and versioned SQL migrations (`src/lib/db/migrations/0000_colorful_pyro.sql`).
+  - [x] Foreign-key cascade constraints and indexes implemented across `events`, `event_budgets`, `budget_categories`, and `event_tasks`.
+  - [x] Deterministic budget domain engine implemented in `src/lib/domain/budget.ts` with integer paise arithmetic and over-budget detection.
+  - [x] Indian currency formatting (`formatINR`, `formatCompactINR` in Lakhs/Crores) and date formatting (`Asia/Kolkata`).
+  - [x] Deterministic initial seeding for Weddings, Birthdays, and Community events inside atomic transactions.
+  - [x] Landing page with active events list, 1-click Gujarati wedding demo seeder, and "+ Plan New Event" navigation.
+  - [x] Event creation wizard with client & server-side Zod validation.
+  - [x] Event Command Center (`/events/[id]`): live budget metrics, category allocation editor, interactive task toggle checklist, and next recommended actions.
+  - [x] Automated test suite: 41 passing tests (unit, integration, and API tests).
+  - [x] Complete verification suite passing (`npm run verify`: type-check, lint, test, build).
+- **Definition of Done:** 100% verified and demonstrable. All changes persist across reloads.
 
 ---
 

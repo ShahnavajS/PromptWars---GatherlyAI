@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --bg-primary: #fffdfa;
+  --bg-surface: #ffffff;
+  --bg-warm: #fcf9f2;
+  --bg-subtle: #f4eee1;
+  --border-subtle: #e8dfd1;
+  --border-strong: #c9bcab;
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --brand-primary: #ea580c;
+  --brand-focus: #f97316;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbars & accessible focus */
+:focus-visible {
+  outline: 2px solid var(--brand-focus);
+  outline-offset: 2px;
+}
+
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2;
+}
+
+/* Smooth badge styling */
+.badge-wedding {
+  @apply bg-rose-50 text-rose-700 border border-rose-200;
+}
+
+.badge-birthday {
+  @apply bg-amber-50 text-amber-700 border border-amber-200;
+}
+
+.badge-community {
+  @apply bg-emerald-50 text-emerald-700 border border-emerald-200;
+}
+
+.badge-celebration {
+  @apply bg-purple-50 text-purple-700 border border-purple-200;
+}
