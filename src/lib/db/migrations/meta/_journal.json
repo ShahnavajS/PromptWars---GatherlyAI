@@ -15,6 +15,13 @@
       "when": 1793259216753,
       "tag": "0001_simple_malice",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793261142580,
+      "tag": "0002_narrow_shotgun",
+      "breakpoints": true
     }
   ]
 }

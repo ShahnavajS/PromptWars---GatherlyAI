@@ -1,5 +1,5 @@
 import { getDb, getRawSqlite } from '@/lib/db';
-import { events, eventBudgets, budgetCategories, eventTasks } from '@/lib/db/schema';
+import { events, eventBudgets, budgetCategories, eventTasks, eventActivities } from '@/lib/db/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { CreateEventInput, UpdateTaskInput } from '@/lib/validation/events';
 import { getInitialSeedData } from '@/lib/domain/seeding';
@@ -62,6 +62,7 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
         targetGuestCount: input.targetGuestCount,
         venueName: input.venueName || null,
         venueCity: input.venueCity || 'Ahmedabad',
+        version: 1,
         createdAt: now,
         updatedAt: now,
       })
@@ -114,6 +115,32 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
         })
         .run();
     });
+
+    // 5. Record Initial Event Creation in Activity Log
+    db.insert(eventActivities)
+      .values({
+        id: `act_${crypto.randomUUID()}`,
+        eventId,
+        actorId: userId,
+        actionType: 'EVENT_CREATED',
+        entityType: 'EVENT',
+        entityId: eventId,
+        changeSummary: `Created event workspace for "${input.title}" with initial budget and seed tasks.`,
+        previousValuesJson: null,
+        newValuesJson: JSON.stringify({
+          title: input.title,
+          eventType: input.eventType,
+          startDate: input.startDate,
+          endDate: input.endDate || null,
+          targetGuestCount: input.targetGuestCount,
+          totalBudgetRupees: input.totalBudgetRupees,
+          venueCity: input.venueCity || 'Ahmedabad',
+        }),
+        findingsSummaryJson: null,
+        approvedActionsJson: null,
+        createdAt: now,
+      })
+      .run();
   });
 
   executeTransaction();

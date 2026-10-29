@@ -36,6 +36,7 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
       target_guest_count INTEGER NOT NULL DEFAULT 100,
       venue_name TEXT,
       venue_city TEXT NOT NULL DEFAULT 'Ahmedabad',
+      version INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -106,7 +107,36 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
 
     CREATE INDEX IF NOT EXISTS idx_ai_suggestions_event_id ON ai_plan_suggestions(event_id);
     CREATE INDEX IF NOT EXISTS idx_ai_suggestions_status ON ai_plan_suggestions(status);
+
+    CREATE TABLE IF NOT EXISTS event_activities (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      actor_id TEXT NOT NULL DEFAULT 'usr_demo',
+      action_type TEXT NOT NULL,
+      entity_type TEXT NOT NULL,
+      entity_id TEXT NOT NULL,
+      change_summary TEXT NOT NULL,
+      previous_values_json TEXT,
+      new_values_json TEXT,
+      findings_summary_json TEXT,
+      approved_actions_json TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_activities_event_id ON event_activities(event_id);
+    CREATE INDEX IF NOT EXISTS idx_activities_created_at ON event_activities(created_at);
   `);
+
+  // Safe schema migration for existing SQLite databases without recreating data
+  try {
+    const columns = sqlite.pragma('table_info(events)') as Array<{ name: string }>;
+    if (columns.length > 0 && !columns.some((c) => c.name === 'version')) {
+      sqlite.exec('ALTER TABLE events ADD COLUMN version INTEGER NOT NULL DEFAULT 1;');
+    }
+  } catch {
+    // If pragma fails or table does not exist yet, initializeTables handles it
+  }
 }
 
 export function getDb() {

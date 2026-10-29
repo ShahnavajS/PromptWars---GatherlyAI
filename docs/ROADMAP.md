@@ -73,16 +73,29 @@ flowchart LR
 
 ---
 
-### Phase 4: Connected Event Planning & Explainable Change-Impact Engine
-- **Objective:** Build the flagship product differentiator: relational change-impact detection and explainable intelligence.
-- **Scope:**
-  - Deterministic Rule Engine for change impact analysis:
-    - Guest count scaling: Adjusts catering estimates, checks venue capacity limits, flags seating/invitation tasks.
-    - Date shifts: Recomputes milestone deadlines, flags conflicting vendor booking windows.
-    - Budget cap modifications: Identifies category deficits and suggests proportional reallocations.
-  - Explainable Impact Card UI: Highlights what changed, which assumptions are affected, which numbers are estimates, and what decisions are required.
-  - Activity audit logging in `event_activities`.
-- **Acceptance Criteria:** Changing guest count from 250 to 320 automatically generates a clear, deterministic impact warning with catering delta and venue capacity alerts without corrupting confirmed budget numbers.
+### Phase 4: Connected Event Planning & Explainable Change-Impact Engine (COMPLETED ✓)
+- **Objective:** Build the flagship product differentiator: relational change-impact detection and explainable intelligence with a two-stage preview & confirm workflow, optimistic concurrency, and audit provenance.
+- **Scope & Results:**
+  - [x] Deterministic Rule Engine for change impact analysis:
+    - Guest count scaling: Scales catering based on established per-guest rate (~₹/guest), flags other categories (Decor, Stationery, Favors) for review without fabricating numbers, raises venue capacity warnings when increase exceeds 20%.
+    - Date shifts: Calculates calendar day difference (`diffDays`), shifts incomplete milestone task due dates proportionally with opt-in checkboxes, preserves completed tasks (`DONE`), detects invalid/reversed date ranges, warns on short notice windows.
+    - Budget cap modifications: Computes available pool and contingency, identifies category deficits with exact amounts, flags unallocated surpluses without altering commitments.
+    - City relocation: Identifies vendor, travel, and logistics re-verification requirements.
+  - [x] Two-Stage Preview & Confirm Workflow:
+    - Stage 1 (Preview): Computes explainable findings on an immutable snapshot. Database is never mutated.
+    - Stage 2 (Confirm): Atomically applies primary requirement updates and user-selected side-effects in a single SQLite transaction.
+  - [x] Stale State & Concurrency Protection:
+    - Optimistic concurrency control via `version` column on events.
+    - Rejects stale preview confirmations with HTTP 409 Conflict if workspace was modified in the interim.
+  - [x] Activity Audit Logging & Provenance:
+    - `event_activities` table records all confirmed requirement changes with actor attribution, previous/new JSON snapshots, and approved side-effect lists.
+    - Interactive history timeline on the dashboard with expandable technical snapshots.
+  - [x] UI Dashboard Integration:
+    - "Change Impact & History" tab and quick header banner link.
+    - Per-item findings cards with opt-in side-effect checkboxes.
+  - [x] Automated Test Suite: 95 passing tests across 12 test files (26 new Phase 4 tests).
+  - [x] Complete verification passing (`npm run verify`: type-check, lint, test, build).
+- **Definition of Done:** 100% verified and demonstrable. Changing event requirements previews consequences without mutating data; user confirmation persists changes atomically with full audit history.
 
 ---
 

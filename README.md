@@ -6,9 +6,25 @@ Gatherly AI is a GenAI-powered event planning and coordination platform designed
 
 ---
 
-## 🌟 Implemented Capabilities (Phase 3 — GenAI Planning)
+## 🌟 Implemented Capabilities (Phase 4 — Change-Impact Intelligence)
 
-### AI Planning (Phase 3 — New)
+### Explainable Change-Impact Intelligence (Phase 4 — New)
+
+- **Deterministic Relational Impact Engine:**
+  - Evaluates consequences of requirement changes (guest count, start/end dates, total budget, city relocation) without guessing or fabricating numbers.
+  - Distinguishes **Calculated Changes** (e.g. per-guest catering scaling, milestone deadline shifts) from **Items Requiring Review** (e.g. venue capacity, decor supplier quantities, unscheduled tasks) and **Constraint Violations** (e.g. budget deficits, reversed date ranges, past dates).
+- **Two-Stage Preview & Confirm Workflow:**
+  - **Stage 1 (Preview):** Computes explainable findings on an immutable snapshot. Database state is never modified.
+  - **Stage 2 (Confirm):** Validates optimistic concurrency (`version`), atomically applies primary requirement updates, and applies only explicitly user-checked side-effects in a single SQLite transaction.
+  - **Cancellation:** Discards the preview cleanly with zero side-effects.
+- **Stale State & Concurrency Conflict Defense:**
+  - Optimistic concurrency control via `version` column on events.
+  - Prevents race conditions where an interim update occurred between preview and confirmation, returning HTTP 409 Conflict with clear guidance to re-evaluate on fresh state.
+- **Audit Provenance & Change History:**
+  - `event_activities` table tracks all confirmed requirement changes with actor attribution, previous/new JSON snapshots, and approved side-effect lists.
+  - Interactive history timeline on the dashboard with expandable technical snapshots.
+
+### AI Planning (Phase 3)
 
 - **Google Gemini Integration:**
   - Natural language event description → structured, personalized plan via `gemini-2.5-flash`.
@@ -17,30 +33,25 @@ Gatherly AI is a GenAI-powered event planning and coordination platform designed
   - Prompt injection defense: `<system>` tag sanitization on all user-supplied text.
 - **Structured Plan Generation:**
   - AI produces a validated, schema-compliant plan: concept & theme, cultural personalization, budget category proposals, tasks with priorities, agenda blocks, and vendor requirements.
-  - Plans are validated with Zod before any data is written.
 - **Reviewable Suggestions (AI proposes → user decides):**
   - Generated plans are staged as `PENDING_REVIEW` — nothing changes until the user acts.
-  - **Accept All**, **Accept Selected** (individual categories and tasks), or **Reject All**.
-  - Idempotent acceptance: re-accepting the same plan never creates duplicate tasks.
-  - Accepted plans propagate to the live Budget and Task workspace atomically.
-  - Status trail: `PENDING_REVIEW` → `ACCEPTED` / `PARTIALLY_ACCEPTED` / `REJECTED`.
-- **Budget Model Fixed (Phase 3 Correction):**
+  - **Accept All**, **Accept Selected**, or **Reject All** with idempotent task deduplication.
+- **Budget Model Fixed:**
   - Invariant guaranteed: `sum(category allocations) + contingency = totalBudget` exactly.
-  - `availableAllocationPaise` is the distributable ceiling (total minus contingency), preventing the original 107%+ utilization false-positive.
 
 ### Event Planning Foundation (Phase 2)
 
 - **Event Creation Flow** — Weddings, Birthdays, Community, Celebrations with full Zod validation.
 - **Deterministic Financial Engine** — 100% integer paise arithmetic, Indian number formatting (₹, Lakhs, Crores), over-budget detection.
 - **Event Command Center Dashboard** — countdown, budget editor, task checklist, next-action card.
-- **Robust Database Layer** — SQLite + Drizzle ORM, enforced foreign keys, versioned migrations, cascading deletes.
+- **Robust Database Layer** — SQLite + Drizzle ORM, enforced foreign keys, versioned migrations (`0000`, `0001`, `0002`), cascading deletes.
 
 ---
 
 ## 🚫 Explicitly Unimplemented (Deferred to Subsequent Phases)
 
-- **Change-Impact Engine:** Relational ripple-effect intelligence for guest count / date shifts → **Phase 4**.
 - **Vendor Quotation Ingestion & Comparison:** Multi-quote comparison and document OCR → **Phase 5**.
+- **Multi-Day Time-Slotted Timeline View:** Detailed hourly ceremony agendas and vendor run-of-show → **Phase 5**.
 - **Multi-User Authentication:** Multi-tenant session management deferred; app runs in single `usr_demo` local mode. See [Authentication Limitation](#authentication-limitation).
 - **Direct Financial Payments:** No live UPI/banking transactions.
 
@@ -104,20 +115,23 @@ The SQLite database (`data/gatherly.db`) is created automatically on first run.
 
 ---
 
-## 🧪 Test Coverage Summary (Phase 3)
+## 🧪 Test Coverage Summary (Phase 4)
 
 | File | Tests | What it covers |
 | :--- | :---: | :--- |
+| `tests/unit/change-impact.test.ts` | 15 | Deterministic impact engine rules (guest scaling, date shift, budget deficit, venue) |
 | `tests/unit/budget.test.ts` | 16 | Integer paise arithmetic, zero drift, over-budget detection |
-| `tests/unit/budget-regression.test.ts` | 6 | Phase 3 invariant: categories + contingency = total |
-| `tests/unit/formatting.test.ts` | 7 | Indian currency & date formatting |
+| `tests/unit/budget-regression.test.ts` | 6 | Financial invariant: categories + contingency = total |
+| `tests/unit/formatting.test.ts` | 7 | Indian currency & date formatting (`Asia/Kolkata`) |
 | `tests/unit/seeding.test.ts` | 4 | Category/task seeding without 1-paisa drift |
 | `tests/unit/ai-service.test.ts` | 9 | Gemini client, prompt injection defense, fallback templates |
+| `tests/integration/change-impact.test.ts` | 5 | Preview purity, atomic commit, side-effects, concurrency 409, auth isolation |
+| `tests/integration/change-impact-api.test.ts` | 6 | Change impact preview/confirm/history REST API routes |
 | `tests/integration/events.test.ts` | 6 | Atomic transactions, FK cascades, user isolation |
 | `tests/integration/api.test.ts` | 8 | REST validation, 400/404 responses |
 | `tests/integration/plan-review.test.ts` | 6 | Stage → accept/reject/partial, idempotency, auth isolation |
 | `tests/integration/ai-api.test.ts` | 7 | AI plan POST/GET, review route, fallback path |
-| **Total** | **69** | **All passing** |
+| **Total** | **95** | **All 12 test files passing (100%)** |
 
 ---
 

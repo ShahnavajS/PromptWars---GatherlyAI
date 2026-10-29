@@ -18,6 +18,7 @@ export const events = sqliteTable(
     targetGuestCount: integer('target_guest_count').notNull().default(100),
     venueName: text('venue_name'),
     venueCity: text('venue_city').notNull().default('Ahmedabad'),
+    version: integer('version').notNull().default(1),
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
@@ -122,3 +123,31 @@ export const eventTasks = sqliteTable(
     index('idx_tasks_status').on(table.status),
   ]
 );
+
+/**
+ * Event Activities table (Audit & Change Intelligence Log)
+ */
+export const eventActivities = sqliteTable(
+  'event_activities',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'cascade' }),
+    actorId: text('actor_id').notNull().default('usr_demo'),
+    actionType: text('action_type').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: text('entity_id').notNull(),
+    changeSummary: text('change_summary').notNull(),
+    previousValuesJson: text('previous_values_json'),
+    newValuesJson: text('new_values_json'),
+    findingsSummaryJson: text('findings_summary_json'),
+    approvedActionsJson: text('approved_actions_json'),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    index('idx_activities_event_id').on(table.eventId),
+    index('idx_activities_created_at').on(table.createdAt),
+  ]
+);
+

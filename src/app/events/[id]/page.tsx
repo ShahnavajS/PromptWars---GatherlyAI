@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { EventDetail } from '@/lib/services/eventService';
 import { formatINR, formatCompactINR, formatDate, calculateDaysRemaining } from '@/lib/domain/formatting';
 import PlanGeneratorView from '@/components/ai/PlanGeneratorView';
+import ChangeImpactView from '@/components/impact/ChangeImpactView';
 
 export default function EventDashboardPage({
   params,
@@ -17,7 +18,7 @@ export default function EventDashboardPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'ai-planner'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'ai-planner' | 'change-impact'>('overview');
 
   // Category editing state
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -242,6 +243,9 @@ export default function EventDashboardPage({
               <span className="rounded-full bg-amber-100 px-3 py-0.5 text-xs font-bold text-amber-900">
                 ⏳ {countdown.label}
               </span>
+              <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-xs font-mono font-bold text-slate-600">
+                v{event.version ?? 1}
+              </span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">
               {event.title}
@@ -276,6 +280,13 @@ export default function EventDashboardPage({
             <span className="text-xs text-orange-700 font-semibold mt-0.5">
               {formatCompactINR(budgetSummary.totalBudgetPaise)} total allocation
             </span>
+            <button
+              onClick={() => setActiveTab('change-impact')}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-orange-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-orange-700 transition-colors"
+            >
+              <span>⚡</span>
+              <span>Edit Requirements</span>
+            </button>
           </div>
         </div>
       </div>
@@ -308,6 +319,21 @@ export default function EventDashboardPage({
             Gemini
           </span>
         </button>
+
+        <button
+          onClick={() => setActiveTab('change-impact')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
+            activeTab === 'change-impact'
+              ? 'bg-orange-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-amber-50'
+          }`}
+        >
+          <span>⚡</span>
+          <span>Change Impact & History</span>
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-900">
+            Intelligence
+          </span>
+        </button>
       </div>
 
       {activeTab === 'ai-planner' ? (
@@ -320,6 +346,8 @@ export default function EventDashboardPage({
           totalBudgetPaise={budgetSummary.totalBudgetPaise}
           onPlanApplied={refetchEvent}
         />
+      ) : activeTab === 'change-impact' ? (
+        <ChangeImpactView eventDetail={data} onApplied={refetchEvent} />
       ) : (
         <>
           {/* Over-budget alert banner if allocations exceed budget */}
