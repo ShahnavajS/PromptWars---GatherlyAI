@@ -2,47 +2,47 @@
 
 > **Plan smarter. Spend wisely. Bring everyone together.**
 
-Gatherly AI is an event planning and coordination platform designed from an India-first perspective with an internationally extensible architecture. It enables individuals, couples, and community coordinators to transform event concepts into organized, editable, and mathematically deterministic workspaces.
+Gatherly AI is a GenAI-powered event planning and coordination platform designed from an India-first perspective with an internationally extensible architecture. It enables individuals, couples, and community coordinators to transform event concepts into organized, editable, and AI-assisted workspaces — with every suggestion reviewable before it touches your data.
 
 ---
 
-## 🌟 Implemented Capabilities (Phase 2 Vertical Slice)
+## 🌟 Implemented Capabilities (Phase 3 — GenAI Planning)
 
-- **Event Creation Flow:**
-  - Create Weddings, Birthdays, Community Gatherings, and Family Celebrations.
-  - Multi-field input validation (Zod) on both client and server: event title, date range, location, guest headcounts, and total budget in INR.
-  - Default timezone support for `Asia/Kolkata`.
-- **Deterministic Financial Engine:**
-  - 100% integer minor-unit (paise) math: eliminates JavaScript floating-point rounding errors.
-  - Indian numbering system formatting: native `₹`, Lakhs, and Crores grouping (e.g. `₹15,00,000` / `₹15 Lakh`).
-  - Strict separation of planned ceiling, category allocations, contingency reserve (10%), and remaining balances.
-  - Over-budget detection: automatically surfaces deficit alerts with exact amounts when allocations exceed the ceiling.
-- **Deterministic Initial Seeding:**
-  - Generates event-specific budget categories (Catering & Dining, Venue & Staging, Decor, Photography, Entertainment) and starter preparation tasks within an atomic SQLite transaction.
-  - Category allocations guaranteed to sum to 100% of the total budget without rounding drift.
-- **Event Command Center Dashboard (`/events/[id]`):**
-  - Live summary: countdown days remaining, guest counts, location, and planned budget cap.
-  - Interactive budget category editor: inline editing of any category allocation with real-time recalculated totals and server-side persistence.
-  - Interactive task checklist: toggle tasks between `TODO` and `DONE` with instant database persistence.
-  - Next recommended action card tailored to the event's progress.
-- **Robust Database Layer:**
-  - SQLite with `better-sqlite3` and `drizzle-orm`.
-  - Enforced foreign keys (`PRAGMA foreign_keys = ON;`) with cascading deletes.
-  - Versioned migrations in `src/lib/db/migrations/`.
-- **Comprehensive Automated Verification:**
-  - Unit tests for budget math, Indian currency formatting, and deterministic seeding.
-  - Database integration tests for transactions, user isolation, and cascade deletions.
-  - API integration tests for validation failures, negative numbers, and 404 responses.
+### AI Planning (Phase 3 — New)
+
+- **Google Gemini Integration:**
+  - Natural language event description → structured, personalized plan via `gemini-2.5-flash`.
+  - All AI calls are **server-side only** — `GEMINI_API_KEY` never reaches the browser.
+  - Graceful deterministic fallback when the API key is not configured (clearly labelled, never presented as AI output).
+  - Prompt injection defense: `<system>` tag sanitization on all user-supplied text.
+- **Structured Plan Generation:**
+  - AI produces a validated, schema-compliant plan: concept & theme, cultural personalization, budget category proposals, tasks with priorities, agenda blocks, and vendor requirements.
+  - Plans are validated with Zod before any data is written.
+- **Reviewable Suggestions (AI proposes → user decides):**
+  - Generated plans are staged as `PENDING_REVIEW` — nothing changes until the user acts.
+  - **Accept All**, **Accept Selected** (individual categories and tasks), or **Reject All**.
+  - Idempotent acceptance: re-accepting the same plan never creates duplicate tasks.
+  - Accepted plans propagate to the live Budget and Task workspace atomically.
+  - Status trail: `PENDING_REVIEW` → `ACCEPTED` / `PARTIALLY_ACCEPTED` / `REJECTED`.
+- **Budget Model Fixed (Phase 3 Correction):**
+  - Invariant guaranteed: `sum(category allocations) + contingency = totalBudget` exactly.
+  - `availableAllocationPaise` is the distributable ceiling (total minus contingency), preventing the original 107%+ utilization false-positive.
+
+### Event Planning Foundation (Phase 2)
+
+- **Event Creation Flow** — Weddings, Birthdays, Community, Celebrations with full Zod validation.
+- **Deterministic Financial Engine** — 100% integer paise arithmetic, Indian number formatting (₹, Lakhs, Crores), over-budget detection.
+- **Event Command Center Dashboard** — countdown, budget editor, task checklist, next-action card.
+- **Robust Database Layer** — SQLite + Drizzle ORM, enforced foreign keys, versioned migrations, cascading deletes.
 
 ---
 
-## 🚫 Explicitly Unimplemented in Phase 2 (Deferred to Subsequent Phases)
+## 🚫 Explicitly Unimplemented (Deferred to Subsequent Phases)
 
-- **Google Gemini GenAI Integration:** Natural language plan generation, AI prompts, and conversational intake belong to **Phase 3**.
-- **Change-Impact Engine:** Relational ripple-effect intelligence for guest count/date shifts belongs to **Phase 4**.
-- **Vendor Quotation Ingestion & Comparison:** Multi-quote comparison and document OCR belong to **Phase 5**.
-- **Multi-User Role-Based Authentication:** Multi-tenant session management is deferred; current demo runs in local single-user mode.
-- **Direct Financial Payments:** No live UPI/banking transactions (Gatherly tracks financial data without moving real funds).
+- **Change-Impact Engine:** Relational ripple-effect intelligence for guest count / date shifts → **Phase 4**.
+- **Vendor Quotation Ingestion & Comparison:** Multi-quote comparison and document OCR → **Phase 5**.
+- **Multi-User Authentication:** Multi-tenant session management deferred; app runs in single `usr_demo` local mode. See [Authentication Limitation](#authentication-limitation).
+- **Direct Financial Payments:** No live UPI/banking transactions.
 
 ---
 
@@ -51,33 +51,40 @@ Gatherly AI is an event planning and coordination platform designed from an Indi
 ### Prerequisites
 - **Node.js:** `v24.x` or `v22.x`
 - **NPM:** `v11.x` or `v10.x`
-- **Git**
 
 ### Installation
 ```bash
-# Clone and enter the repository
-cd "c:\Users\sanus\Desktop\Event Mangment AI"
-
-# Install dependencies
 npm install
 ```
 
 ### Environment Configuration
-The application uses sensible defaults out of the box. Optionally create a `.env.local` file:
-```env
-# Optional: defaults to ./data/gatherly.db
-DATABASE_URL=./data/gatherly.db
-```
 
-### Database Initialization & Migrations
+Copy `.env.example` to `.env.local` and fill in your values:
+
 ```bash
-# Generate versioned migrations
-npm run db:generate
-
-# Push schema directly (if needed)
-npm run db:push
+cp .env.example .env.local
 ```
-*Note: SQLite database tables are also automatically initialized on first application connection.*
+
+The only value that unlocks AI features is `GEMINI_API_KEY`:
+
+```env
+# Required for AI plan generation (get from https://aistudio.google.com/app/apikey)
+GEMINI_API_KEY=your-gemini-api-key-here
+
+# Optional overrides (all have working defaults)
+# GEMINI_MODEL=gemini-2.5-flash
+# DATABASE_URL=./data/gatherly.db
+```
+
+**Without `GEMINI_API_KEY`:** Gatherly falls back to deterministic starter templates. All other functionality (event creation, budgeting, tasks) works normally.
+
+### Running Locally
+
+```bash
+npm run dev      # http://localhost:3000
+```
+
+The SQLite database (`data/gatherly.db`) is created automatically on first run.
 
 ---
 
@@ -85,43 +92,59 @@ npm run db:push
 
 | Script | Purpose |
 | :--- | :--- |
-| `npm run dev` | Starts Next.js development server at `http://localhost:3000` |
-| `npm run test` | Runs the Vitest automated test suite |
-| `npm run test:watch` | Runs Vitest in interactive watch mode |
-| `npm run type-check` | Runs TypeScript type checker (`tsc --noEmit`) in strict mode |
-| `npm run lint` | Runs ESLint with Next.js Core Web Vitals rules |
-| `npm run build` | Produces an optimized production build |
-| `npm start` | Starts the production server |
-| `npm run verify` | Runs all checks: `type-check && lint && test && build` |
+| `npm run dev` | Start Next.js dev server at `http://localhost:3000` |
+| `npm test` | Run the Vitest automated test suite |
+| `npm run test:watch` | Vitest in interactive watch mode |
+| `npm run type-check` | TypeScript strict type check (`tsc --noEmit`) |
+| `npm run lint` | ESLint with Next.js Core Web Vitals rules |
+| `npm run build` | Optimized production build |
+| `npm run verify` | Full gate: `type-check && lint && test && build` |
+| `npm run db:generate` | Generate versioned Drizzle migration |
+| `npm run db:push` | Push schema directly (dev convenience) |
 
 ---
 
-## 🧪 Test Coverage Summary
+## 🧪 Test Coverage Summary (Phase 3)
 
-- **Unit Tests:**
-  - `tests/unit/budget.test.ts`: 16 tests verifying integer paise arithmetic, zero drift, negative rejection, overflow checks, and over-budget deficit detection.
-  - `tests/unit/formatting.test.ts`: 7 tests verifying Indian currency formatting (`₹`, Lakhs, Crores) and date formatting (`Asia/Kolkata`).
-  - `tests/unit/seeding.test.ts`: 4 tests verifying category and task generation without 1-paisa drift.
-- **Integration Tests:**
-  - `tests/integration/events.test.ts`: 6 tests verifying atomic transactions, foreign-key cascades, category allocation updates, and user isolation.
-  - `tests/integration/api.test.ts`: 8 tests verifying REST API route handlers, input validation schemas, 400 bad requests, and 404 responses.
-- **Total Passing Tests:** **41 / 41 passing (100%)**.
+| File | Tests | What it covers |
+| :--- | :---: | :--- |
+| `tests/unit/budget.test.ts` | 16 | Integer paise arithmetic, zero drift, over-budget detection |
+| `tests/unit/budget-regression.test.ts` | 6 | Phase 3 invariant: categories + contingency = total |
+| `tests/unit/formatting.test.ts` | 7 | Indian currency & date formatting |
+| `tests/unit/seeding.test.ts` | 4 | Category/task seeding without 1-paisa drift |
+| `tests/unit/ai-service.test.ts` | 9 | Gemini client, prompt injection defense, fallback templates |
+| `tests/integration/events.test.ts` | 6 | Atomic transactions, FK cascades, user isolation |
+| `tests/integration/api.test.ts` | 8 | REST validation, 400/404 responses |
+| `tests/integration/plan-review.test.ts` | 6 | Stage → accept/reject/partial, idempotency, auth isolation |
+| `tests/integration/ai-api.test.ts` | 7 | AI plan POST/GET, review route, fallback path |
+| **Total** | **69** | **All passing** |
 
 ---
 
 ## 📚 Project Documentation
 
-Detailed architecture specifications are located in [`docs/`](./docs/):
-- [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md) — Product specification, personas, use cases, and non-goals.
-- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — System architecture, module structure, and request lifecycles.
-- [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md) — Entity relationships, table schemas, and financial invariants.
-- [`docs/SECURITY_AND_PRIVACY.md`](./docs/SECURITY_AND_PRIVACY.md) — Threat model, IDOR protection, and prompt injection defense.
-- [`docs/EVALUATION_RUBRIC.md`](./docs/EVALUATION_RUBRIC.md) — 14 measurable quality standards.
-- [`docs/ROADMAP.md`](./docs/ROADMAP.md) — 6-phase engineering execution plan.
+| Document | Purpose |
+| :--- | :--- |
+| [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md) | Product specification, personas, use cases, non-goals |
+| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System architecture, module structure, request lifecycles |
+| [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md) | Entity relationships, table schemas, financial invariants |
+| [`docs/SECURITY_AND_PRIVACY.md`](./docs/SECURITY_AND_PRIVACY.md) | Threat model, IDOR protection, prompt injection defense |
+| [`docs/EVALUATION_RUBRIC.md`](./docs/EVALUATION_RUBRIC.md) | 14 measurable quality standards |
+| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | 6-phase engineering execution plan |
 
 ---
 
-## ⚠️ Known Limitations (Phase 2)
+## ⚠️ Known Limitations
 
-1. **Authentication:** The app runs with a default local session user (`usr_demo`). Production multi-user authentication is scheduled for later phases.
-2. **Database Engine:** Uses SQLite via `better-sqlite3` for local development and demonstration. Production deployments may configure PostgreSQL via Drizzle.
+### Authentication Limitation
+
+Gatherly currently runs in **single-user demo mode**. All sessions resolve to `usr_demo` (enforced in `src/lib/auth/session.ts`). There is no sign-up, login, or token-based auth.
+
+- All data is scoped to `user_id = 'usr_demo'` — the database enforces `WHERE event_id = ? AND user_id = ?` on every write, preventing cross-session access even within the demo.
+- A `ALLOW_DEMO_AUTH=true` guard prevents the demo session from being used in a production environment without an explicit opt-in.
+- **Multi-user auth is scheduled for a later phase** and will require replacing `getCurrentSessionUser()` with a real session provider.
+
+### Database Engine
+
+SQLite via `better-sqlite3` for local development. Production deployments should configure PostgreSQL via Drizzle ORM (configuration change only — no application code changes required).
+

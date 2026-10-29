@@ -8,6 +8,13 @@
       "when": 1793258179005,
       "tag": "0000_colorful_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793259216753,
+      "tag": "0001_simple_malice",
+      "breakpoints": true
     }
   ]
 }

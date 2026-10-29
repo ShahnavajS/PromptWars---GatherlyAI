@@ -77,8 +77,28 @@ export const budgetCategories = sqliteTable(
 );
 
 /**
- * Event Tasks table
+ * AI Plan Suggestions table (Reviewable Staging for GenAI Plans)
  */
+export const aiPlanSuggestions = sqliteTable(
+  'ai_plan_suggestions',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('event_id')
+      .notNull()
+      .references(() => events.id, { onDelete: 'cascade' }),
+    promptSummary: text('prompt_summary').notNull(),
+    rawPayloadJson: text('raw_payload_json').notNull(),
+    status: text('status').notNull().default('PENDING_REVIEW'), // 'PENDING_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'SUPERSEDED'
+    appliedMetadataJson: text('applied_metadata_json'),
+    modelUsed: text('model_used').notNull().default('gemini-2.5-flash'),
+    createdAt: text('created_at').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (table) => [
+    index('idx_ai_suggestions_event_id').on(table.eventId),
+    index('idx_ai_suggestions_status').on(table.status),
+  ]
+);
 export const eventTasks = sqliteTable(
   'event_tasks',
   {

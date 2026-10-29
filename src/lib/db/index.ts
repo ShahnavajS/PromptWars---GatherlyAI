@@ -90,6 +90,22 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
 
     CREATE INDEX IF NOT EXISTS idx_tasks_event_id ON event_tasks(event_id);
     CREATE INDEX IF NOT EXISTS idx_tasks_status ON event_tasks(status);
+
+    CREATE TABLE IF NOT EXISTS ai_plan_suggestions (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      prompt_summary TEXT NOT NULL,
+      raw_payload_json TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING_REVIEW',
+      applied_metadata_json TEXT,
+      model_used TEXT NOT NULL DEFAULT 'gemini-2.5-flash',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_ai_suggestions_event_id ON ai_plan_suggestions(event_id);
+    CREATE INDEX IF NOT EXISTS idx_ai_suggestions_status ON ai_plan_suggestions(status);
   `);
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState, use } from 'react';
 import Link from 'next/link';
 import { EventDetail } from '@/lib/services/eventService';
 import { formatINR, formatCompactINR, formatDate, calculateDaysRemaining } from '@/lib/domain/formatting';
+import PlanGeneratorView from '@/components/ai/PlanGeneratorView';
 
 export default function EventDashboardPage({
   params,
@@ -16,6 +17,7 @@ export default function EventDashboardPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'ai-planner'>('overview');
 
   // Category editing state
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -24,6 +26,18 @@ export default function EventDashboardPage({
 
   // Task updating state
   const [updatingTaskId, setUpdatingTaskId] = useState<string | null>(null);
+
+  const refetchEvent = () => {
+    fetch(`/api/events/${eventId}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          setData(json.data);
+          setActiveTab('overview');
+          showToast('Live workspace updated with adopted suggestions! 🎉');
+        }
+      });
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -266,29 +280,71 @@ export default function EventDashboardPage({
         </div>
       </div>
 
-      {/* Over-budget alert banner if allocations exceed budget */}
-      {budgetSummary.isOverBudget && (
-        <div className="mb-8 flex items-center justify-between rounded-2xl border border-red-300 bg-red-50 p-5 text-red-900 shadow-sm animate-pulse">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <h4 className="font-bold text-sm sm:text-base">
-                Budget Deficit Detected: Over by {formatINR(budgetSummary.overBudgetPaise)}
-              </h4>
-              <p className="text-xs text-red-700 mt-0.5">
-                Allocated categories plus contingency reserve exceed your total budget ceiling. Adjust
-                allocations below to maintain financial discipline.
-              </p>
-            </div>
-          </div>
-          <span className="hidden sm:inline-block rounded-xl bg-red-200/80 px-3 py-1 text-xs font-bold text-red-900">
-            {budgetSummary.utilizationPercentage}% Allocated
-          </span>
-        </div>
-      )}
+      {/* Navigation Tabs */}
+      <div className="mb-8 flex items-center gap-3 border-b border-amber-200/80 pb-3">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
+            activeTab === 'overview'
+              ? 'bg-orange-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-amber-50'
+          }`}
+        >
+          <span>📊</span>
+          <span>Overview & Live Budget</span>
+        </button>
 
-      {/* Grid: Left Column Budget, Right Column Tasks */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <button
+          onClick={() => setActiveTab('ai-planner')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
+            activeTab === 'ai-planner'
+              ? 'bg-orange-600 text-white shadow-sm'
+              : 'bg-gradient-to-r from-amber-50 to-orange-50 text-orange-900 border border-orange-300 hover:bg-orange-100/60'
+          }`}
+        >
+          <span>✨</span>
+          <span>AI Event Planner & Review</span>
+          <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-black text-orange-800">
+            Gemini
+          </span>
+        </button>
+      </div>
+
+      {activeTab === 'ai-planner' ? (
+        <PlanGeneratorView
+          eventId={event.id}
+          eventTitle={event.title}
+          eventType={event.eventType}
+          venueCity={event.venueCity}
+          targetGuestCount={event.targetGuestCount}
+          totalBudgetPaise={budgetSummary.totalBudgetPaise}
+          onPlanApplied={refetchEvent}
+        />
+      ) : (
+        <>
+          {/* Over-budget alert banner if allocations exceed budget */}
+          {budgetSummary.isOverBudget && (
+            <div className="mb-8 flex items-center justify-between rounded-2xl border border-red-300 bg-red-50 p-5 text-red-900 shadow-sm animate-pulse">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">⚠️</span>
+                <div>
+                  <h4 className="font-bold text-sm sm:text-base">
+                    Budget Deficit Detected: Over by {formatINR(budgetSummary.overBudgetPaise)}
+                  </h4>
+                  <p className="text-xs text-red-700 mt-0.5">
+                    Allocated categories plus contingency reserve exceed your total budget ceiling. Adjust
+                    allocations below to maintain financial discipline.
+                  </p>
+                </div>
+              </div>
+              <span className="hidden sm:inline-block rounded-xl bg-red-200/80 px-3 py-1 text-xs font-bold text-red-900">
+                {budgetSummary.utilizationPercentage}% Allocated
+              </span>
+            </div>
+          )}
+
+          {/* Grid: Left Column Budget, Right Column Tasks */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Budget Command Center (7 cols) */}
         <div className="lg:col-span-7 space-y-8">
           {/* Budget Overview Cards */}
@@ -560,6 +616,8 @@ export default function EventDashboardPage({
           </div>
         </div>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 }

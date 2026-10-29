@@ -52,15 +52,24 @@ flowchart LR
 
 ---
 
-### Phase 3: GenAI Event Planning & Intake Engine
-- **Objective:** Connect Google Gemini via the official `@google/genai` SDK to enable natural-language event planning with runtime Zod schema validation.
-- **Scope:**
-  - Google GenAI SDK integration (`gemini-2.5-flash`).
-  - Natural-language intake wizard with cultural presets (e.g. Gujarati, Punjabi, South Indian, Modern Celebration).
-  - Structured output generation: Generates tailored multi-day itinerary, suggested budget allocations, task checklist, and vendor criteria.
-  - **Reviewable Suggestions Workspace:** Shows the AI proposal side-by-side with accept/reject/modify controls before saving to database.
-  - Fallback template provider for offline/rate-limited operation.
-- **Acceptance Criteria:** Typing "Plan a 2-day Gujarati wedding in Ahmedabad for 250 guests with a ₹12 Lakh budget" generates a structured, culturally accurate plan validated by Zod and saved as an uncommitted draft for user review.
+### Phase 3: GenAI Event Planning & Intake Engine (COMPLETED ✓)
+- **Objective:** Connect Google Gemini via the official `@google/genai` SDK to enable natural-language event planning with runtime Zod schema validation, reviewable staged suggestions, and safe acceptance into the live workspace.
+- **Scope & Results:**
+  - [x] `@google/genai` SDK v2.32.0 integrated (`gemini-2.5-flash`).
+  - [x] Server-side only AI calls — `GEMINI_API_KEY` never exposed to browser bundle.
+  - [x] Prompt injection defense: user-supplied `<system>` tags are stripped before the prompt is sent.
+  - [x] Structured Zod schema validation on every AI response before any write occurs.
+  - [x] `ai_plan_suggestions` staging table with status trail: `PENDING_REVIEW` → `ACCEPTED` / `PARTIALLY_ACCEPTED` / `REJECTED`.
+  - [x] Deterministic starter template fallback: honestly labelled `modelUsed: 'deterministic-starter-template'`, never claimed as AI output.
+  - [x] AI Planner tab on event dashboard: generates plan, shows concept / personalization / budget / tasks sections with per-item checkboxes.
+  - [x] Accept All / Accept Selected / Reject All — idempotent acceptance (duplicate task prevention).
+  - [x] Accepted suggestions propagate to budget categories and task checklist atomically.
+  - [x] Budget model invariant fixed: `sum(categories) + contingency = totalBudget` guaranteed.
+  - [x] `src/lib/auth/session.ts` documents demo mode, warns in production environments.
+  - [x] `.env.example` added with all configurable keys documented.
+  - [x] 69 tests passing (9 files: unit AI service, budget regression, formatting, seeding; integration plan-review, AI API, events, API).
+  - [x] Complete verification passing (`npm run verify`: type-check, lint, test, build).
+- **Definition of Done:** Fully verified. Users can describe an event in natural language, review AI-generated categories and tasks, selectively accept, and see them reflected in their live workspace.
 
 ---
 

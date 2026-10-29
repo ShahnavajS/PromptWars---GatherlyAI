@@ -45,7 +45,7 @@ export const CreateEventSchema = z
       .int('Budget must be a whole number of Rupees.')
       .min(1000, 'Minimum budget is ₹1,000.')
       .max(1000000000, 'Maximum budget is ₹100 Crore.'),
-    timezone: z.string().default('Asia/Kolkata'),
+    timezone: z.string().optional().default('Asia/Kolkata'),
   })
   .refine(
     (data) => {
@@ -58,7 +58,7 @@ export const CreateEventSchema = z
     }
   );
 
-export type CreateEventInput = z.infer<typeof CreateEventSchema>;
+export type CreateEventInput = z.input<typeof CreateEventSchema>;
 
 /**
  * Schema for updating a category allocation
