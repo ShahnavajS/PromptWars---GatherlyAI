@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { getVendorById, updateVendor, deleteVendor } from '@/lib/services/vendorService';
 import { UpdateVendorSchema } from '@/lib/validation/vendor';
 import { ZodError } from 'zod';
@@ -18,6 +18,10 @@ export async function GET(
     }
     return NextResponse.json({ success: true, data: vendor });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     const message = error instanceof Error ? error.message : 'Internal server error.';
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Event not found.' }, { status: 404 });
@@ -40,6 +44,10 @@ export async function PATCH(
     const vendor = await updateVendor(id, session.id, vendorId, validated);
     return NextResponse.json({ success: true, data: vendor });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     if (error instanceof ZodError) {
       return NextResponse.json(
         {
@@ -72,6 +80,10 @@ export async function DELETE(
     await deleteVendor(id, session.id, vendorId);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     const message = error instanceof Error ? error.message : 'Internal server error.';
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Vendor not found.' }, { status: 404 });

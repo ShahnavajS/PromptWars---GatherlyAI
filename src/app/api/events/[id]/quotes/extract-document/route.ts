@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { processQuotationDocument } from '@/lib/services/quotationExtractionService';
 
 export async function POST(
@@ -28,6 +28,10 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: extracted }, { status: 200 });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     const message = error instanceof Error ? error.message : 'Failed to extract quotation document.';
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Event not found or unauthorized.' }, { status: 404 });

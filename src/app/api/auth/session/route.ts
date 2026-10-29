@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   getCurrentSessionUser,
   createSignedSessionToken,
+  validateCsrfOrigin,
   DEMO_USER,
 } from '@/lib/auth/session';
 import { z } from 'zod';
@@ -25,6 +26,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    if (!validateCsrfOrigin(req)) {
+      return NextResponse.json({ success: false, error: 'CSRF Origin validation failed.' }, { status: 403 });
+    }
+
     const body = await req.json();
     const validated = CreateSessionSchema.parse(body);
 
@@ -68,14 +73,25 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  if (!validateCsrfOrigin(req)) {
+    return NextResponse.json({ success: false, error: 'CSRF Origin validation failed.' }, { status: 403 });
+  }
+
   const response = NextResponse.json({
     success: true,
     data: DEMO_USER,
     message: 'Session cleared. Reverted to default demo.',
   });
 
-  response.cookies.delete('gatherly_session');
+  response.cookies.set('gatherly_session', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  });
+
   return response;
 }
 

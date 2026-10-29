@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { confirmQuote } from '@/lib/services/vendorService';
 import { ConfirmQuoteSchema } from '@/lib/validation/vendor';
 import { ZodError } from 'zod';
@@ -18,6 +18,10 @@ export async function POST(
     const result = await confirmQuote(id, session.id, quoteId, validated.categoryId, validated.supersedeOthers);
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     if (error instanceof ZodError) {
       return NextResponse.json(
         {

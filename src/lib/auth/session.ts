@@ -33,7 +33,14 @@ export class UnauthorizedSessionError extends Error {
 }
 
 function getAuthSecret(): string {
-  return process.env.AUTH_SECRET || 'gatherly_sec_dev_local_secret_key_32chars!';
+  const secret = process.env.AUTH_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('AUTH_SECRET environment variable must be set in production.');
+    }
+    return 'gatherly_sec_dev_local_secret_key_32chars!';
+  }
+  return secret;
 }
 
 interface SessionTokenPayload {
@@ -42,10 +49,45 @@ interface SessionTokenPayload {
   email: string;
   exp: number;
   isDemo: boolean;
+  jti: string;
 }
 
 /**
- * Creates a cryptographically signed session token.
+ * Validates Origin header against Host on state-changing requests (CSRF Defense).
+ */
+export function validateCsrfOrigin(req: Request | { headers?: Headers | Record<string, string | string[]> }): boolean {
+  if (!req || !('headers' in req) || !req.headers) return true;
+
+  let origin: string | null = null;
+  let host: string | null = null;
+
+  if (typeof req.headers.get === 'function') {
+    origin = req.headers.get('origin');
+    host = req.headers.get('host');
+  } else {
+    const rawOrigin = (req.headers as Record<string, string | string[]>)['origin'] ||
+      (req.headers as Record<string, string | string[]>)['Origin'];
+    origin = Array.isArray(rawOrigin) ? rawOrigin[0] : (rawOrigin || null);
+
+    const rawHost = (req.headers as Record<string, string | string[]>)['host'] ||
+      (req.headers as Record<string, string | string[]>)['Host'];
+    host = Array.isArray(rawHost) ? rawHost[0] : (rawHost || null);
+  }
+
+  // If no origin (e.g. server-to-server, GET/HEAD, or non-browser client), pass
+  if (!origin) return true;
+  if (!host) return true;
+
+  try {
+    const originUrl = new URL(origin);
+    return originUrl.host.toLowerCase() === host.toLowerCase();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Creates a cryptographically signed session token with a unique jti nonce.
  */
 export function createSignedSessionToken(
   user: { id: string; name: string; email: string; isDemo?: boolean },
@@ -59,6 +101,7 @@ export function createSignedSessionToken(
     email: user.email,
     exp,
     isDemo: user.isDemo ?? false,
+    jti: crypto.randomUUID(),
   };
 
   const payloadB64 = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -68,7 +111,7 @@ export function createSignedSessionToken(
 }
 
 /**
- * Verifies a signed session token.
+ * Verifies a signed session token using constant-time comparison.
  */
 export function verifySessionToken(token: string): SessionUser | null {
   try {
@@ -79,8 +122,11 @@ export function verifySessionToken(token: string): SessionUser | null {
     const secret = getAuthSecret();
     const expectedSig = crypto.createHmac('sha256', secret).update(payloadB64).digest('base64url');
 
-    // Constant-time comparison
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig))) {
+    const sigBuf = Buffer.from(signature);
+    const expectedBuf = Buffer.from(expectedSig);
+
+    // Constant-time length and signature verification
+    if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
       return null;
     }
 
@@ -108,7 +154,7 @@ export function verifySessionToken(token: string): SessionUser | null {
 /**
  * Derives the active session user on the server.
  * Reads Authorization header (Bearer token) or gatherly_session cookie.
- * Falls back to DEMO_USER when permitted.
+ * Rejects explicitly tampered/expired tokens; falls back to DEMO_USER only when no token is present.
  */
 export function getCurrentSessionUser(req?: Request | { headers?: Headers | Record<string, string | string[]> }): SessionUser {
   if (req) {
@@ -151,9 +197,10 @@ export function getCurrentSessionUser(req?: Request | { headers?: Headers | Reco
 
     if (token) {
       const verified = verifySessionToken(token);
-      if (verified) {
-        return verified;
+      if (!verified) {
+        throw new UnauthorizedSessionError('Invalid, expired, or tampered session token.');
       }
+      return verified;
     }
   }
 

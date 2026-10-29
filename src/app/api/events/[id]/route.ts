@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventById } from '@/lib/services/eventService';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 
 export async function GET(
   req: NextRequest,
@@ -20,6 +20,10 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: eventDetail });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     const message = error instanceof Error ? error.message : 'Internal server error.';
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }

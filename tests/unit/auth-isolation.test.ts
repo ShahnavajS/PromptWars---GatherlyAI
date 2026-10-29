@@ -3,6 +3,7 @@ import {
   createSignedSessionToken,
   verifySessionToken,
   getCurrentSessionUser,
+  validateCsrfOrigin,
   UnauthorizedSessionError,
   DEMO_USER,
 } from '@/lib/auth/session';
@@ -115,6 +116,16 @@ describe('Authentication, Signed Tokens & Session Isolation (Unit)', () => {
       expect(user.isDemoMode).toBe(false);
     });
 
+    it('throws UnauthorizedSessionError when an explicitly invalid or tampered token is provided', () => {
+      const req = new Request('http://localhost:3000/api/events', {
+        headers: {
+          Authorization: 'Bearer invalid.tampered.signature',
+        },
+      });
+
+      expect(() => getCurrentSessionUser(req)).toThrow(UnauthorizedSessionError);
+    });
+
     it('falls back to DEMO_USER in development/test environment when unauthenticated', () => {
       const req = new Request('http://localhost:3000/api/events');
       const user = getCurrentSessionUser(req);
@@ -131,6 +142,37 @@ describe('Authentication, Signed Tokens & Session Isolation (Unit)', () => {
 
       const req = new Request('http://localhost:3000/api/events');
       expect(() => getCurrentSessionUser(req)).toThrow(UnauthorizedSessionError);
+    });
+  });
+
+  describe('validateCsrfOrigin', () => {
+    it('allows requests when origin host matches request host', () => {
+      const req = new Request('http://localhost:3000/api/auth/session', {
+        headers: {
+          Host: 'localhost:3000',
+          Origin: 'http://localhost:3000',
+        },
+      });
+      expect(validateCsrfOrigin(req)).toBe(true);
+    });
+
+    it('rejects state-changing requests when origin belongs to an external attacker domain', () => {
+      const req = new Request('http://localhost:3000/api/auth/session', {
+        headers: {
+          Host: 'localhost:3000',
+          Origin: 'https://evil-attacker-site.com',
+        },
+      });
+      expect(validateCsrfOrigin(req)).toBe(false);
+    });
+
+    it('passes non-browser requests without origin header', () => {
+      const req = new Request('http://localhost:3000/api/auth/session', {
+        headers: {
+          Host: 'localhost:3000',
+        },
+      });
+      expect(validateCsrfOrigin(req)).toBe(true);
     });
   });
 });

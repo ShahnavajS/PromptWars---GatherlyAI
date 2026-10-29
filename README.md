@@ -133,12 +133,12 @@ The SQLite database (`data/gatherly.db`) is initialized automatically with versi
 
 ---
 
-## 🧪 Test Coverage Summary (Phase 6 Final Baseline)
+## 🧪 Test Coverage Summary (Phase 7 Final Baseline)
 
 | File | Tests | What it covers |
 | :--- | :---: | :--- |
 | `tests/unit/document-extraction.test.ts` | 7 | PDF magic bytes (`%PDF-`), 5MB size limit, private storage isolation, heuristic field parsing |
-| `tests/unit/auth-isolation.test.ts` | 8 | HMAC-SHA256 session token signing, verification, tampering rejection, cookie/bearer extraction, demo guard |
+| `tests/unit/auth-isolation.test.ts` | 12 | HMAC-SHA256 session token signing, verification, tampering rejection, cookie/bearer extraction, CSRF origin guard, demo guard |
 | `tests/unit/quote-comparison.test.ts` | 3 | Multi-currency quote tracking, currency mismatch defense on budget apply, safe superseding opt-in, idempotency |
 | `tests/unit/vendor.test.ts` | 1 | Vendor management, evidence-based quote recording, 2-phase budget approval |
 | `tests/unit/schedule.test.ts` | 5 | Multi-day schedule items, time slots, conflict detection, date range bounds |
@@ -152,10 +152,10 @@ The SQLite database (`data/gatherly.db`) is initialized automatically with versi
 | `tests/integration/change-impact.test.ts` | 5 | Preview purity, atomic commit, side-effects, concurrency 409, auth isolation |
 | `tests/integration/change-impact-api.test.ts` | 6 | Change impact preview/confirm/history REST API routes |
 | `tests/integration/events.test.ts` | 6 | Atomic transactions, FK cascades, user isolation |
-| `tests/integration/api.test.ts` | 8 | REST validation, 400/404 responses |
+| `tests/integration/api.test.ts` | 11 | REST validation, 400/404 responses, cross-user 401/404 isolation |
 | `tests/integration/plan-review.test.ts` | 6 | Stage → accept/reject/partial, idempotency, auth isolation |
 | `tests/integration/ai-api.test.ts` | 7 | AI plan POST/GET, review route, fallback path |
-| **Total** | **123** | **All 18 test files passing (100%)** |
+| **Total** | **130** | **All 18 test files passing (100%)** |
 
 ---
 

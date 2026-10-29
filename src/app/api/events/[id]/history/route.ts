@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventHistory, UnauthorizedEventError } from '@/lib/services/changeImpactService';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 
 export async function GET(
   req: NextRequest,
@@ -17,6 +17,10 @@ export async function GET(
 
     return NextResponse.json({ success: true, history });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     if (error instanceof UnauthorizedEventError) {
       return NextResponse.json({ success: false, error: error.message }, { status: 404 });
     }

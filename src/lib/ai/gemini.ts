@@ -65,11 +65,20 @@ export async function generateStructuredPlanWithGemini(
       config: {
         responseMimeType: 'application/json',
         systemInstruction,
-        temperature: 0.7,
+        temperature: 0.4,
+        // Disable thinking budget so reasoning tokens don't corrupt JSON output.
+        // gemini-2.5-flash is a hybrid thinking model; without this, it may
+        // prepend chain-of-thought text before the JSON object.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
     rawResponseText = response.text || '';
+    // Server-side diagnostic log (never logs secrets or user PII)
+    console.log(
+      `[Gemini] model=${modelName} chars=${rawResponseText.length} ` +
+        `preview=${rawResponseText.slice(0, 200).replace(/\n/g, ' ')}`
+    );
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     if (errMsg.includes('API key') || errMsg.includes('401') || errMsg.includes('unauthenticated')) {
@@ -86,11 +95,27 @@ export async function generateStructuredPlanWithGemini(
   }
 
   // Strip markdown code fences if model enclosed JSON
-  const cleanedJson = rawResponseText
+  let cleanedJson = rawResponseText
     .replace(/^```json\s*/i, '')
     .replace(/^```\s*/i, '')
     .replace(/\s*```$/i, '')
     .trim();
+
+  // Aggressively extract the first top-level JSON object if there is any preamble
+  // (e.g. thinking model residue, explanatory text before the JSON).
+  if (!cleanedJson.startsWith('{')) {
+    const firstBrace = cleanedJson.indexOf('{');
+    if (firstBrace !== -1) {
+      cleanedJson = cleanedJson.slice(firstBrace);
+    }
+  }
+  // Trim any trailing text after the closing brace of the root object
+  if (cleanedJson.endsWith('}') === false) {
+    const lastBrace = cleanedJson.lastIndexOf('}');
+    if (lastBrace !== -1) {
+      cleanedJson = cleanedJson.slice(0, lastBrace + 1);
+    }
+  }
 
   let parsedJson: unknown;
   try {

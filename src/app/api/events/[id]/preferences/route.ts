@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { getPreferences, updatePreferences } from '@/lib/services/preferencesService';
 import { CULTURAL_PRESETS } from '@/lib/services/preferencesService';
 import { UpdatePreferencesSchema } from '@/lib/validation/preferences';
@@ -16,6 +16,10 @@ export async function GET(
     const preferences = await getPreferences(id, session.id);
     return NextResponse.json({ success: true, data: { preferences, presets: CULTURAL_PRESETS } });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     const message = error instanceof Error ? error.message : 'Internal server error.';
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Event not found.' }, { status: 404 });
@@ -38,6 +42,10 @@ export async function PATCH(
     const preferences = await updatePreferences(id, session.id, validated);
     return NextResponse.json({ success: true, data: preferences });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     if (error instanceof ZodError) {
       return NextResponse.json(
         {

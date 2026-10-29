@@ -5,7 +5,7 @@ import {
   StalePreviewConflictError,
   UnauthorizedEventError,
 } from '@/lib/services/changeImpactService';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 
 export async function POST(
   req: NextRequest,
@@ -32,6 +32,10 @@ export async function POST(
     const result = await confirmAndApplyChange(eventId, parseResult.data, sessionUser.id);
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     if (error instanceof StalePreviewConflictError) {
       return NextResponse.json({ success: false, error: error.message }, { status: 409 });
     }

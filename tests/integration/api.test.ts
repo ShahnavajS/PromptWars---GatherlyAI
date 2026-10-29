@@ -4,7 +4,9 @@ import { GET as getEvents, POST as postEvent } from '@/app/api/events/route';
 import { GET as getEventByIdRoute } from '@/app/api/events/[id]/route';
 import { PATCH as patchCategory } from '@/app/api/events/[id]/categories/[categoryId]/route';
 import { PATCH as patchTask } from '@/app/api/events/[id]/tasks/[taskId]/route';
+import { GET as getVendors } from '@/app/api/events/[id]/vendors/route';
 import { getRawSqlite } from '@/lib/db';
+import { createSignedSessionToken } from '@/lib/auth/session';
 
 describe('API Route Handlers Integration', () => {
   beforeEach(() => {
@@ -158,6 +160,88 @@ describe('API Route Handlers Integration', () => {
 
       expect(res.status).toBe(400);
       const json = await res.json();
+      expect(json.success).toBe(false);
+    });
+  });
+
+  describe('Cross-user event isolation', () => {
+    it('returns 404 when user B tries to GET an event owned by user A', async () => {
+      // User A creates an event
+      const userAToken = createSignedSessionToken({ id: 'usr_alice', name: 'Alice', email: 'alice@example.com' });
+      const createReq = new NextRequest('http://localhost:3000/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userAToken}` },
+        body: JSON.stringify({
+          title: 'Alice Private Wedding',
+          eventType: 'WEDDING',
+          startDate: '2026-12-01',
+          venueCity: 'Mumbai',
+          targetGuestCount: 100,
+          totalBudgetRupees: 500000,
+        }),
+      });
+      const createRes = await postEvent(createReq);
+      expect(createRes.status).toBe(201);
+      const created = await createRes.json();
+      const eventId = created.data.event.id;
+
+      // User B attempts to access user A's event
+      const userBToken = createSignedSessionToken({ id: 'usr_bob', name: 'Bob', email: 'bob@example.com' });
+      const getReq = new NextRequest(`http://localhost:3000/api/events/${eventId}`, {
+        headers: { Authorization: `Bearer ${userBToken}` },
+      });
+      const getRes = await getEventByIdRoute(getReq, {
+        params: Promise.resolve({ id: eventId }),
+      });
+
+      expect(getRes.status).toBe(404);
+      const json = await getRes.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toMatch(/not found/i);
+    });
+
+    it('returns 401 when a tampered or invalid token is presented', async () => {
+      const req = new NextRequest('http://localhost:3000/api/events', {
+        headers: { Authorization: 'Bearer bad.payload.signature' },
+      });
+      const res = await getEvents(req);
+      expect(res.status).toBe(401);
+      const json = await res.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toMatch(/authentication required/i);
+    });
+
+    it('returns 404 for vendor GET with wrong user session', async () => {
+      // User A creates an event
+      const userAToken = createSignedSessionToken({ id: 'usr_alice2', name: 'Alice2', email: 'alice2@example.com' });
+      const createReq = new NextRequest('http://localhost:3000/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userAToken}` },
+        body: JSON.stringify({
+          title: 'Alice Vendor Test Event',
+          eventType: 'CELEBRATION',
+          startDate: '2026-12-15',
+          venueCity: 'Delhi',
+          targetGuestCount: 50,
+          totalBudgetRupees: 100000,
+        }),
+      });
+      const createRes = await postEvent(createReq);
+      const created = await createRes.json();
+      const eventId = created.data.event.id;
+
+      // User B attempts to list vendors on user A's event
+      const userBToken = createSignedSessionToken({ id: 'usr_bob2', name: 'Bob2', email: 'bob2@example.com' });
+      const vendorReq = new NextRequest(`http://localhost:3000/api/events/${eventId}/vendors`, {
+        headers: { Authorization: `Bearer ${userBToken}` },
+      });
+      const vendorRes = await getVendors(vendorReq, {
+        params: Promise.resolve({ id: eventId }),
+      });
+
+      // Service throws NOT_FOUND for wrong user — route returns 404
+      expect(vendorRes.status).toBe(404);
+      const json = await vendorRes.json();
       expect(json.success).toBe(false);
     });
   });

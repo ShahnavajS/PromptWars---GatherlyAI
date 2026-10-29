@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { updateQuoteStatus } from '@/lib/services/vendorService';
 import { ZodError, z } from 'zod';
 
@@ -21,6 +21,10 @@ export async function PATCH(
     const quote = await updateQuoteStatus(id, session.id, quoteId, validated.status);
     return NextResponse.json({ success: true, data: quote });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     if (error instanceof ZodError) {
       return NextResponse.json(
         {

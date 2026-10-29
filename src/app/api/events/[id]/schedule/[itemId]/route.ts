@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSessionUser } from '@/lib/auth/session';
+import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { updateScheduleItem, deleteScheduleItem } from '@/lib/services/scheduleService';
 import { UpdateScheduleItemSchema } from '@/lib/validation/schedule';
 import { ZodError } from 'zod';
@@ -18,6 +18,10 @@ export async function PATCH(
     const item = await updateScheduleItem(id, session.id, itemId, validated);
     return NextResponse.json({ success: true, data: item });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     if (error instanceof ZodError) {
       return NextResponse.json(
         {
@@ -50,6 +54,10 @@ export async function DELETE(
     await deleteScheduleItem(id, session.id, itemId);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+
     const message = error instanceof Error ? error.message : 'Internal server error.';
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Schedule item not found.' }, { status: 404 });
