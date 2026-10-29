@@ -28,7 +28,7 @@ CRITICAL INSTRUCTIONS:
 4. Culturally Nuanced: When cultural traditions are specified (e.g. Gujarati, Punjabi, South Indian, Bengali), reflect appropriate ceremonies, traditional food ideas (e.g. Jain, pure veg, regional thali), and decor. Never invent ceremonies if none are requested.
 5. Accessibility & Care: Consider elderly guests and family accommodations if mentioned.
 6. Vendor Specifications: Suggest clear RFP requirements and comparison criteria. Never invent fake vendor bookings, fake phone numbers, or fake live availability.
-7. Output Format: You MUST return a single, valid JSON object matching the requested schema. Do NOT enclose in markdown code fences (\`\`\`json) if raw JSON is requested. Return only valid JSON.`;
+7. Output Format: You MUST return a single, valid JSON object ONLY. Do NOT wrap in markdown code fences. Return ONLY the raw JSON object, nothing else.`;
 }
 
 export function buildUserPrompt(ctx: PromptContext): string {
@@ -50,12 +50,58 @@ export function buildUserPrompt(ctx: PromptContext): string {
 ${sanitizedContext || 'No additional notes provided. Plan a high-quality, memorable event tailored to the metadata above.'}
 </user_supplied_planning_notes>
 
-Generate the complete structured event plan matching the schema with:
-1. Concept: Plan title, overview, theme, atmosphere, assumptions, and missing information questions.
-2. Personalization: Cultural traditions, dietary accommodations, accessibility notes, decor colors, entertainment.
-3. Budget Plan: 10% contingency, and 4-8 category proposals with percentages summing to 100% of the available pool.
-4. Preparation Tasks: 5-10 actionable, categorized, prioritized tasks with relative deadline offsets.
-5. Agenda Blocks: Proposed schedule blocks for the event day(s).
-6. Vendor Requirements: Clear RFP specifications and comparison criteria for essential vendors.`;
+Return a single valid JSON object matching EXACTLY this structure (no markdown, no code fences, raw JSON only):
+
+{
+  "concept": {
+    "planTitle": "descriptive plan title (3-120 chars)",
+    "overview": "event overview (10-600 chars)",
+    "theme": "theme description (3-100 chars)",
+    "atmosphere": "atmosphere description (3-150 chars)",
+    "keyAssumptions": ["assumption 1", "assumption 2"],
+    "missingInformation": ["info needed 1"]
+  },
+  "personalization": {
+    "culturalTraditions": ["tradition 1", "tradition 2"],
+    "dietaryPlans": ["dietary plan 1"],
+    "accessibilityNotes": ["accessibility note 1"],
+    "decorAndColors": ["color/decor element 1"],
+    "entertainmentIdeas": ["entertainment idea 1"]
+  },
+  "budgetPlan": {
+    "contingencyPercentage": 10,
+    "categoryProposals": [
+      { "name": "Venue", "percentage": 25, "rationale": "reason for this allocation" },
+      { "name": "Catering", "percentage": 35, "rationale": "reason for this allocation" },
+      { "name": "Decor", "percentage": 15, "rationale": "reason for this allocation" },
+      { "name": "Photography", "percentage": 10, "rationale": "reason for this allocation" },
+      { "name": "Entertainment", "percentage": 10, "rationale": "reason for this allocation" },
+      { "name": "Logistics", "percentage": 5, "rationale": "reason for this allocation" }
+    ]
+  },
+  "tasks": [
+    {
+      "title": "task title (5-150 chars)",
+      "description": "task description (max 500 chars)",
+      "category": "VENUE",
+      "priority": "HIGH",
+      "relativeDeadlineDays": 90,
+      "rationale": "why this task matters (max 300 chars)"
+    }
+  ],
+  "agendaBlocks": [
+    { "dayNumber": 1, "title": "ceremony title", "timeWindow": "10:00 AM - 12:00 PM", "description": "description of ceremony" }
+  ],
+  "vendorRequirements": [
+    { "category": "VENUE", "title": "Venue Requirements", "specifications": "detailed specifications (5-500 chars)", "comparisonCriteria": ["criterion 1", "criterion 2"] }
+  ]
 }
 
+RULES YOU MUST FOLLOW:
+- concept, personalization, budgetPlan, and tasks fields are REQUIRED — never omit them.
+- agendaBlocks and vendorRequirements must be present (use [] if not applicable).
+- budgetPlan.categoryProposals must have 4-8 items with integer percentages summing to exactly 100.
+- tasks must have 5-10 items. Each task category must be one of: VENUE, CATERING, DECOR, LOGISTICS, GENERAL, ENTERTAINMENT.
+- Each task priority must be one of: LOW, MEDIUM, HIGH, CRITICAL.
+- Return ONLY the JSON object. No text before or after. No markdown. No code fences.`;
+}

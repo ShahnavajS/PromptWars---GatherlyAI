@@ -31,6 +31,7 @@ export interface SeedDataResult {
     priority: string;
     description: string;
     dueDateIso: string;
+    deadlineProvenance: 'EVENT_RELATIVE' | 'FIXED_DATE' | 'USER_SET' | 'UNKNOWN';
   }>;
 }
 
@@ -218,6 +219,7 @@ export function getInitialSeedData(
       priority: task.priority,
       description: task.description,
       dueDateIso: dueDate.toISOString().split('T')[0],
+      deadlineProvenance: 'EVENT_RELATIVE' as const,
     };
   });
 

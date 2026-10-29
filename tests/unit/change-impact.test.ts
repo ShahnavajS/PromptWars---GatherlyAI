@@ -86,6 +86,7 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
         status: 'TODO',
         priority: 'HIGH',
         dueDate: '2026-11-01',
+        deadlineProvenance: 'EVENT_RELATIVE',
         assignedTo: 'Family',
         isAiSuggested: false,
         createdAt: '2026-10-01T00:00:00Z',
@@ -100,6 +101,7 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
         status: 'DONE',
         priority: 'CRITICAL',
         dueDate: '2026-10-15',
+        deadlineProvenance: 'FIXED_DATE',
         assignedTo: 'Rohan',
         isAiSuggested: false,
         createdAt: '2026-10-01T00:00:00Z',
@@ -114,6 +116,7 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
         status: 'TODO',
         priority: 'MEDIUM',
         dueDate: null, // Unscheduled task
+        deadlineProvenance: 'UNKNOWN',
         assignedTo: null,
         isAiSuggested: false,
         createdAt: '2026-10-01T00:00:00Z',

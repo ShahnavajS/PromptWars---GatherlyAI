@@ -81,6 +81,14 @@ export function evaluateChangeImpact(
         const proposedAllocationPaise = Math.round(unitRatePaise * newGuests);
         const deltaPaise = proposedAllocationPaise - cateringCat.allocatedPaise;
 
+        const provenance = (cateringCat as { rateProvenance?: string }).rateProvenance || 'INFERRED_ESTIMATE';
+        const provenanceLabel =
+          provenance === 'VENDOR_QUOTED_RATE'
+            ? 'Vendor-Quoted Rate'
+            : provenance === 'USER_CONFIRMED_RATE'
+            ? 'User-Confirmed Rate'
+            : 'Inferred Mathematical Estimate';
+
         const action: AdjustCategoryAction = {
           id: `act_cat_${cateringCat.id}`,
           type: 'ADJUST_CATEGORY_ALLOCATION',
@@ -89,7 +97,7 @@ export function evaluateChangeImpact(
           currentPaise: cateringCat.allocatedPaise,
           proposedPaise: proposedAllocationPaise,
           deltaPaise,
-          rationale: `Proportional per-guest catering rate of ~${formatINR(unitRatePaise)}/guest applied to ${newGuests} guests.`,
+          rationale: `Proportional catering scaling at ~${formatINR(unitRatePaise)}/guest (${provenanceLabel}) applied to ${newGuests} guests.`,
         };
 
         findings.push({
@@ -98,15 +106,21 @@ export function evaluateChangeImpact(
           changeType: 'GUEST_COUNT',
           entityType: 'BUDGET_CATEGORY',
           entityId: cateringCat.id,
-          title: `Catering scale recommendation: ${signText} guests (${pctDelta > 0 ? `+${pctDelta}` : pctDelta}%)`,
-          reason: `Headcount changed from ${oldGuests} to ${newGuests}. Based on existing allocation of ${formatINR(
-            cateringCat.allocatedPaise
-          )} (~${formatINR(unitRatePaise)}/guest), estimated catering changes by ${
+          title: `Catering scale recommendation: ${signText} guests (${pctDelta > 0 ? `+${pctDelta}` : pctDelta}%) [${provenanceLabel}]`,
+          reason: `Headcount changed from ${oldGuests} to ${newGuests}. Based on ${provenanceLabel.toLowerCase()} of ~${formatINR(
+            unitRatePaise
+          )}/guest (${
+            provenance === 'VENDOR_QUOTED_RATE'
+              ? 'supported by vendor quote'
+              : provenance === 'USER_CONFIRMED_RATE'
+              ? 'confirmed by user'
+              : 'inferred by dividing current allocation by previous headcount; not a vendor quote'
+          }), estimated catering changes by ${
             deltaPaise >= 0 ? '+' : ''
           }${formatINR(deltaPaise)} to ${formatINR(proposedAllocationPaise)}.`,
           severity: Math.abs(pctDelta) >= 20 ? 'WARNING' : 'INFO',
           classification: 'CALCULATED_CHANGE',
-          previousValue: formatINR(cateringCat.allocatedPaise),
+          previousValue: `${formatINR(cateringCat.allocatedPaise)} (${provenanceLabel})`,
           proposedValue: formatINR(proposedAllocationPaise),
           requiredUserAction:
             'Review calculated estimate and choose whether to adjust catering allocation.',
@@ -163,23 +177,66 @@ export function evaluateChangeImpact(
     });
 
     // C. Venue Capacity Rule
-    if (diffGuests > 0 && (pctDelta >= 20 || newGuests >= 200)) {
+    const maxCapacity = snapshot.event.venueCapacityMax ?? snapshot.preferences?.venueCapacityMax ?? null;
+    if (maxCapacity !== null) {
+      if (newGuests > maxCapacity) {
+        findings.push({
+          id: `find_venue_capacity_exceeded_${snapshot.event.id}`,
+          eventId: snapshot.event.id,
+          changeType: 'GUEST_COUNT',
+          entityType: 'VENUE',
+          entityId: snapshot.event.id,
+          title: `Confirmed Venue Capacity Exceeded: ${newGuests} > ${maxCapacity} max`,
+          reason: `Headcount of ${newGuests} guests exceeds the confirmed venue limit of ${maxCapacity} guests at ${
+            newVenueName || newCity
+          }.`,
+          severity: 'CRITICAL',
+          classification: 'CONSTRAINT_VIOLATION',
+          previousValue: `${oldGuests} / ${maxCapacity} max`,
+          proposedValue: `${newGuests} / ${maxCapacity} max`,
+          requiredUserAction: 'Reduce guest count or select an alternative larger venue.',
+          automaticChangeAllowed: false,
+          ruleId: 'RULE_VENUE_CAPACITY',
+          proposedAction: null,
+        });
+      } else {
+        findings.push({
+          id: `find_venue_capacity_ok_${snapshot.event.id}`,
+          eventId: snapshot.event.id,
+          changeType: 'GUEST_COUNT',
+          entityType: 'VENUE',
+          entityId: snapshot.event.id,
+          title: `Within Confirmed Venue Capacity (${newGuests} / ${maxCapacity})`,
+          reason: `Headcount (${newGuests}) remains within the confirmed maximum capacity of ${maxCapacity} guests at ${
+            newVenueName || newCity
+          }.`,
+          severity: 'INFO',
+          classification: 'INFO',
+          previousValue: `${oldGuests} guests`,
+          proposedValue: `${newGuests} guests`,
+          requiredUserAction: 'No action required.',
+          automaticChangeAllowed: false,
+          ruleId: 'RULE_VENUE_CAPACITY',
+          proposedAction: null,
+        });
+      }
+    } else if (diffGuests > 0 && (pctDelta >= 20 || newGuests >= 200)) {
       findings.push({
         id: `find_venue_capacity_${snapshot.event.id}`,
         eventId: snapshot.event.id,
         changeType: 'GUEST_COUNT',
         entityType: 'VENUE',
         entityId: snapshot.event.id,
-        title: 'Venue capacity & seating layout check',
-        reason: `Headcount increased by ${signText} guests to ${newGuests}. Ensure ${
+        title: 'Heuristic Review: Verify Venue Capacity',
+        reason: `Headcount increased by ${signText} guests to ${newGuests}. No maximum capacity is recorded for ${
           newVenueName || newCity
-        } can accommodate this group size with banquet seating, stage buffer, and dining movement.`,
+        }. Note: 200 guests is a heuristic review threshold, not a verified venue limit. Confirm maximum seating and dining capacity with venue management.`,
         severity: pctDelta >= 35 ? 'CRITICAL' : 'WARNING',
         classification: 'NEEDS_REVIEW',
         previousValue: `${oldGuests} guests`,
         proposedValue: `${newGuests} guests`,
         requiredUserAction:
-          'Contact venue manager to verify fire-safety limits and seating capacity.',
+          'Verify maximum seating and floating capacity with venue management and record capacity in event settings.',
         automaticChangeAllowed: false,
         ruleId: 'RULE_VENUE_CAPACITY',
         proposedAction: null,
@@ -290,35 +347,95 @@ export function evaluateChangeImpact(
       );
 
       incompleteTasksWithDue.forEach((task) => {
-        const proposedDue = addDaysToIso(task.dueDate!, shiftDays);
-        const action: ShiftTaskDueDateAction = {
-          id: `act_tsk_${task.id}`,
-          type: 'SHIFT_TASK_DUE_DATE',
-          taskId: task.id,
-          taskTitle: task.title,
-          currentDueDate: task.dueDate,
-          proposedDueDate: proposedDue,
-          shiftDays,
-          rationale: `Event date moved by ${shiftDays > 0 ? `+${shiftDays}` : shiftDays} days; shift milestone deadline proportionally.`,
-        };
+        const provenance =
+          (task as { deadlineProvenance?: string }).deadlineProvenance || 'UNKNOWN';
 
-        findings.push({
-          id: `find_task_date_${task.id}`,
-          eventId: snapshot.event.id,
-          changeType: 'EVENT_DATE',
-          entityType: 'EVENT_TASK',
-          entityId: task.id,
-          title: `Shift milestone deadline for "${task.title}"`,
-          reason: `Event moved by ${shiftDays > 0 ? `+${shiftDays}` : shiftDays} days. Propose shifting deadline from ${task.dueDate} to ${proposedDue} to preserve planning lead time.`,
-          severity: 'INFO',
-          classification: 'CALCULATED_CHANGE',
-          previousValue: task.dueDate,
-          proposedValue: proposedDue,
-          requiredUserAction: 'Review and confirm whether to shift this task deadline.',
-          automaticChangeAllowed: true,
-          ruleId: 'RULE_DATE_TASK_DEADLINE',
-          proposedAction: action,
-        });
+        if (provenance === 'EVENT_RELATIVE') {
+          const proposedDue = addDaysToIso(task.dueDate!, shiftDays);
+          const action: ShiftTaskDueDateAction = {
+            id: `act_tsk_${task.id}`,
+            type: 'SHIFT_TASK_DUE_DATE',
+            taskId: task.id,
+            taskTitle: task.title,
+            currentDueDate: task.dueDate,
+            proposedDueDate: proposedDue,
+            shiftDays,
+            rationale: `Event date moved by ${shiftDays > 0 ? `+${shiftDays}` : shiftDays} days; shift milestone deadline proportionally.`,
+          };
+
+          findings.push({
+            id: `find_task_date_${task.id}`,
+            eventId: snapshot.event.id,
+            changeType: 'EVENT_DATE',
+            entityType: 'EVENT_TASK',
+            entityId: task.id,
+            title: `Shift milestone deadline for "${task.title}" [EVENT_RELATIVE]`,
+            reason: `Event moved by ${shiftDays > 0 ? `+${shiftDays}` : shiftDays} days. Propose shifting event-relative deadline from ${task.dueDate} to ${proposedDue} to preserve planning lead time.`,
+            severity: 'INFO',
+            classification: 'CALCULATED_CHANGE',
+            previousValue: task.dueDate,
+            proposedValue: proposedDue,
+            requiredUserAction: 'Review and confirm whether to shift this task deadline.',
+            automaticChangeAllowed: true,
+            ruleId: 'RULE_DATE_TASK_DEADLINE',
+            proposedAction: action,
+          });
+        } else if (provenance === 'FIXED_DATE') {
+          findings.push({
+            id: `find_task_fixed_${task.id}`,
+            eventId: snapshot.event.id,
+            changeType: 'EVENT_DATE',
+            entityType: 'EVENT_TASK',
+            entityId: task.id,
+            title: `Fixed calendar deadline preserved for "${task.title}" [FIXED_DATE]`,
+            reason: `Task has an independently fixed calendar deadline (${task.dueDate}) and is protected from automatic date shifts.`,
+            severity: 'INFO',
+            classification: 'NEEDS_REVIEW',
+            previousValue: task.dueDate,
+            proposedValue: `Unchanged (${task.dueDate})`,
+            requiredUserAction: 'Verify if third-party contractual deadline needs separate manual renegotiation.',
+            automaticChangeAllowed: false,
+            ruleId: 'RULE_DATE_TASK_FIXED_PRESERVED',
+            proposedAction: null,
+          });
+        } else if (provenance === 'USER_SET') {
+          findings.push({
+            id: `find_task_userset_${task.id}`,
+            eventId: snapshot.event.id,
+            changeType: 'EVENT_DATE',
+            entityType: 'EVENT_TASK',
+            entityId: task.id,
+            title: `User-set deadline needs review for "${task.title}" [USER_SET]`,
+            reason: `Deadline (${task.dueDate}) was explicitly chosen by the user without an established relative rule.`,
+            severity: 'INFO',
+            classification: 'NEEDS_REVIEW',
+            previousValue: task.dueDate,
+            proposedValue: 'Review required',
+            requiredUserAction: `Confirm whether to shift this deadline or keep it on ${task.dueDate}.`,
+            automaticChangeAllowed: false,
+            ruleId: 'RULE_DATE_TASK_USER_SET_REVIEW',
+            proposedAction: null,
+          });
+        } else {
+          // UNKNOWN provenance: safe fallback, never shift silently!
+          findings.push({
+            id: `find_task_unknown_${task.id}`,
+            eventId: snapshot.event.id,
+            changeType: 'EVENT_DATE',
+            entityType: 'EVENT_TASK',
+            entityId: task.id,
+            title: `Deadline relationship unestablished for "${task.title}" [UNKNOWN]`,
+            reason: `Deadline (${task.dueDate}) has unknown provenance and will not be moved automatically without explicit rule.`,
+            severity: 'INFO',
+            classification: 'NEEDS_REVIEW',
+            previousValue: task.dueDate,
+            proposedValue: 'Confirm relationship',
+            requiredUserAction: 'Confirm if this task is event-relative before modifying.',
+            automaticChangeAllowed: false,
+            ruleId: 'RULE_DATE_TASK_UNKNOWN_PROVENANCE',
+            proposedAction: null,
+          });
+        }
       });
 
       // Incomplete tasks without due dates

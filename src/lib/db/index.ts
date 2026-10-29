@@ -34,6 +34,7 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
       timezone TEXT NOT NULL DEFAULT 'Asia/Kolkata',
       currency TEXT NOT NULL DEFAULT 'INR',
       target_guest_count INTEGER NOT NULL DEFAULT 100,
+      venue_capacity_max INTEGER,
       venue_name TEXT,
       venue_city TEXT NOT NULL DEFAULT 'Ahmedabad',
       version INTEGER NOT NULL DEFAULT 1,
@@ -63,6 +64,8 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
       name TEXT NOT NULL,
       allocated_paise INTEGER NOT NULL DEFAULT 0,
       estimated_paise INTEGER NOT NULL DEFAULT 0,
+      rate_provenance TEXT NOT NULL DEFAULT 'UNKNOWN_RATE',
+      unit_rate_paise INTEGER,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
@@ -82,6 +85,7 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
       status TEXT NOT NULL DEFAULT 'TODO',
       priority TEXT NOT NULL DEFAULT 'MEDIUM',
       due_date TEXT,
+      deadline_provenance TEXT NOT NULL DEFAULT 'UNKNOWN',
       assigned_to TEXT,
       is_ai_suggested INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL,
@@ -126,13 +130,137 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
 
     CREATE INDEX IF NOT EXISTS idx_activities_event_id ON event_activities(event_id);
     CREATE INDEX IF NOT EXISTS idx_activities_created_at ON event_activities(created_at);
+
+    CREATE TABLE IF NOT EXISTS event_preferences (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL UNIQUE,
+      cultural_preset TEXT NOT NULL DEFAULT 'MODERN',
+      dietary_preference TEXT NOT NULL DEFAULT 'MIXED',
+      ceremony_options_json TEXT,
+      accessibility_notes TEXT,
+      decor_style TEXT,
+      entertainment_style TEXT,
+      custom_traditions_json TEXT,
+      venue_capacity_max INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_preferences_event_id ON event_preferences(event_id);
+
+    CREATE TABLE IF NOT EXISTS event_schedules (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      day_number INTEGER NOT NULL DEFAULT 1,
+      date TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      start_time TEXT,
+      end_time TEXT,
+      is_all_day INTEGER NOT NULL DEFAULT 0,
+      location TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'PLANNED',
+      depends_on_schedule_id TEXT,
+      is_ai_suggested INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_schedules_event_id ON event_schedules(event_id);
+    CREATE INDEX IF NOT EXISTS idx_schedules_date ON event_schedules(date);
+
+    CREATE TABLE IF NOT EXISTS vendors (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      contact_name TEXT,
+      contact_phone TEXT,
+      contact_email TEXT,
+      website TEXT,
+      city TEXT,
+      notes TEXT,
+      verification_status TEXT NOT NULL DEFAULT 'UNVERIFIED',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_vendors_event_id ON vendors(event_id);
+    CREATE INDEX IF NOT EXISTS idx_vendors_category ON vendors(category);
+
+    CREATE TABLE IF NOT EXISTS vendor_requirements (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      specifications TEXT NOT NULL,
+      target_budget_paise INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'OPEN',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_requirements_event_id ON vendor_requirements(event_id);
+
+    CREATE TABLE IF NOT EXISTS vendor_quotes (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL,
+      vendor_id TEXT NOT NULL,
+      requirement_id TEXT,
+      category_id TEXT,
+      quote_title TEXT NOT NULL,
+      quoted_amount_paise INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'INR',
+      quote_date TEXT NOT NULL,
+      valid_until_date TEXT,
+      status TEXT NOT NULL DEFAULT 'RECEIVED',
+      inclusions_json TEXT,
+      exclusions_json TEXT,
+      payment_terms_json TEXT,
+      cancellation_policy TEXT,
+      notes TEXT,
+      source_document_name TEXT,
+      is_extracted_by_ai INTEGER NOT NULL DEFAULT 0,
+      confirmed_commitment INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+      FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE CASCADE,
+      FOREIGN KEY (requirement_id) REFERENCES vendor_requirements(id) ON DELETE SET NULL,
+      FOREIGN KEY (category_id) REFERENCES budget_categories(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_quotes_event_id ON vendor_quotes(event_id);
+    CREATE INDEX IF NOT EXISTS idx_quotes_vendor_id ON vendor_quotes(vendor_id);
+    CREATE INDEX IF NOT EXISTS idx_quotes_status ON vendor_quotes(status);
   `);
 
   // Safe schema migration for existing SQLite databases without recreating data
   try {
-    const columns = sqlite.pragma('table_info(events)') as Array<{ name: string }>;
-    if (columns.length > 0 && !columns.some((c) => c.name === 'version')) {
+    const eventCols = sqlite.pragma('table_info(events)') as Array<{ name: string }>;
+    if (eventCols.length > 0 && !eventCols.some((c) => c.name === 'version')) {
       sqlite.exec('ALTER TABLE events ADD COLUMN version INTEGER NOT NULL DEFAULT 1;');
+    }
+    if (eventCols.length > 0 && !eventCols.some((c) => c.name === 'venue_capacity_max')) {
+      sqlite.exec('ALTER TABLE events ADD COLUMN venue_capacity_max INTEGER;');
+    }
+
+    const taskCols = sqlite.pragma('table_info(event_tasks)') as Array<{ name: string }>;
+    if (taskCols.length > 0 && !taskCols.some((c) => c.name === 'deadline_provenance')) {
+      sqlite.exec("ALTER TABLE event_tasks ADD COLUMN deadline_provenance TEXT NOT NULL DEFAULT 'UNKNOWN';");
+    }
+
+    const catCols = sqlite.pragma('table_info(budget_categories)') as Array<{ name: string }>;
+    if (catCols.length > 0 && !catCols.some((c) => c.name === 'rate_provenance')) {
+      sqlite.exec("ALTER TABLE budget_categories ADD COLUMN rate_provenance TEXT NOT NULL DEFAULT 'UNKNOWN_RATE';");
+    }
+    if (catCols.length > 0 && !catCols.some((c) => c.name === 'unit_rate_paise')) {
+      sqlite.exec('ALTER TABLE budget_categories ADD COLUMN unit_rate_paise INTEGER;');
     }
   } catch {
     // If pragma fails or table does not exist yet, initializeTables handles it

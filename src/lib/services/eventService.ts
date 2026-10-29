@@ -1,5 +1,5 @@
 import { getDb, getRawSqlite } from '@/lib/db';
-import { events, eventBudgets, budgetCategories, eventTasks, eventActivities } from '@/lib/db/schema';
+import { events, eventBudgets, budgetCategories, eventTasks, eventActivities, eventPreferences } from '@/lib/db/schema';
 import { eq, and, desc, asc } from 'drizzle-orm';
 import { CreateEventInput, UpdateTaskInput } from '@/lib/validation/events';
 import { getInitialSeedData } from '@/lib/domain/seeding';
@@ -12,6 +12,7 @@ export interface EventDetail {
   categories: (typeof budgetCategories.$inferSelect)[];
   tasks: (typeof eventTasks.$inferSelect)[];
   budgetSummary: BudgetSummary;
+  preferences?: typeof eventPreferences.$inferSelect | null;
 }
 
 export interface EventListItem {
@@ -109,6 +110,7 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
           status: 'TODO',
           priority: tsk.priority,
           dueDate: tsk.dueDateIso,
+          deadlineProvenance: tsk.deadlineProvenance || 'EVENT_RELATIVE',
           isAiSuggested: false,
           createdAt: now,
           updatedAt: now,
@@ -116,7 +118,28 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
         .run();
     });
 
-    // 5. Record Initial Event Creation in Activity Log
+    // 5. Initialize Cultural & Personalization Preferences
+    const defaultPreset = input.eventType === 'WEDDING' ? 'GUJARATI' : 'MODERN';
+    const defaultDiet = input.eventType === 'WEDDING' ? 'PURE_VEG' : 'MIXED';
+
+    db.insert(eventPreferences)
+      .values({
+        id: `prf_${crypto.randomUUID()}`,
+        eventId,
+        culturalPreset: defaultPreset,
+        dietaryPreference: defaultDiet,
+        ceremonyOptionsJson: JSON.stringify([]),
+        accessibilityNotes: 'Standard venue accessibility; ground floor dining preferred.',
+        decorStyle: 'Festive Traditional & Elegant Floral',
+        entertainmentStyle: 'Live folk acoustic & instrumental music',
+        customTraditionsJson: JSON.stringify([]),
+        venueCapacityMax: null,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .run();
+
+    // 6. Record Initial Event Creation in Activity Log
     db.insert(eventActivities)
       .values({
         id: `act_${crypto.randomUUID()}`,
@@ -195,12 +218,16 @@ export async function getEventById(eventId: string, userId = 'usr_demo'): Promis
     budget.contingencyPaise
   );
 
+  const prefList = db.select().from(eventPreferences).where(eq(eventPreferences.eventId, eventId)).all();
+  const preferences = prefList.length > 0 ? prefList[0] : null;
+
   return {
     event,
     budget,
     categories,
     tasks,
     budgetSummary,
+    preferences,
   };
 }
 
