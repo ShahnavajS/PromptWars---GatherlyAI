@@ -19,7 +19,7 @@ describe('API Route Handlers Integration', () => {
 
   describe('GET /api/events', () => {
     it('returns empty list initially and populates after creation', async () => {
-      const res = await getEvents();
+      const res = await getEvents(new NextRequest('http://localhost:3000/api/events'));
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);

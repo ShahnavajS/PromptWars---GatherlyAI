@@ -99,8 +99,11 @@ export async function generateStructuredPlanWithGemini(
     throw new GeminiGenerationError('Model output was not valid JSON.');
   }
 
+  // Resilient pre-normalization of model output to protect against field name variance
+  const sanitizedJson = sanitizeRawModelOutput(parsedJson);
+
   // Runtime schema validation
-  const validationResult = StructuredPlanOutputSchema.safeParse(parsedJson);
+  const validationResult = StructuredPlanOutputSchema.safeParse(sanitizedJson);
   if (!validationResult.success) {
     const issues = validationResult.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ');
     throw new GeminiGenerationError(`Structured validation failed: ${issues}`);
@@ -197,5 +200,57 @@ export function normalizePlanProposal(
     agendaBlocks: rawPlan.agendaBlocks,
     vendorRequirements: rawPlan.vendorRequirements,
   };
+}
+
+/**
+ * Resiliently normalizes raw JSON parsed from Gemini before schema parsing,
+ * ensuring robust tolerance against key casing, aliasing, or common LLM wrapper objects.
+ */
+export function sanitizeRawModelOutput(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== 'object') {
+    return {};
+  }
+
+  // Unwrap common wrapper keys if the LLM nested the response
+  let root = { ...(data as Record<string, unknown>) };
+  if (!root.concept && !root.budgetPlan && !root.tasks) {
+    for (const key of ['plan', 'eventPlan', 'data', 'result', 'structuredPlan', 'event_plan']) {
+      if (root[key] && typeof root[key] === 'object' && !Array.isArray(root[key])) {
+        root = { ...(root[key] as Record<string, unknown>) };
+        break;
+      }
+    }
+  }
+
+  // Resiliently map concept aliases
+  if (root.concept && typeof root.concept === 'object') {
+    const rawConcept = { ...(root.concept as Record<string, unknown>) };
+    if (!rawConcept.planTitle && (rawConcept.title || rawConcept.name || rawConcept.eventTitle)) {
+      rawConcept.planTitle = rawConcept.title || rawConcept.name || rawConcept.eventTitle;
+    }
+    if (!rawConcept.overview && (rawConcept.description || rawConcept.summary)) {
+      rawConcept.overview = rawConcept.description || rawConcept.summary;
+    }
+    root.concept = rawConcept;
+  }
+
+  // Resiliently map budgetPlan aliases
+  if (!root.budgetPlan && (root.budget || root.budgetProposal || root.budget_plan)) {
+    root.budgetPlan = root.budget || root.budgetProposal || root.budget_plan;
+  }
+  if (root.budgetPlan && typeof root.budgetPlan === 'object') {
+    const rawBudget = { ...(root.budgetPlan as Record<string, unknown>) };
+    if (!rawBudget.categoryProposals && (rawBudget.categories || rawBudget.allocations)) {
+      rawBudget.categoryProposals = rawBudget.categories || rawBudget.allocations;
+    }
+    root.budgetPlan = rawBudget;
+  }
+
+  // Resiliently map tasks aliases
+  if (!root.tasks && (root.taskProposals || root.taskList || root.preparationTasks || root.todo)) {
+    root.tasks = root.taskProposals || root.taskList || root.preparationTasks || root.todo;
+  }
+
+  return root;
 }
 

@@ -119,8 +119,8 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
     });
 
     // 5. Initialize Cultural & Personalization Preferences
-    const defaultPreset = input.eventType === 'WEDDING' ? 'GUJARATI' : 'MODERN';
-    const defaultDiet = input.eventType === 'WEDDING' ? 'PURE_VEG' : 'MIXED';
+    const defaultPreset = input.culturalPreset || (input.eventType === 'WEDDING' ? 'GUJARATI' : 'MODERN');
+    const defaultDiet = input.dietaryPreference || (input.eventType === 'WEDDING' ? 'PURE_VEG' : 'MIXED');
 
     db.insert(eventPreferences)
       .values({

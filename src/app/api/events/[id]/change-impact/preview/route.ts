@@ -13,7 +13,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Invalid event ID.' }, { status: 400 });
     }
 
-    const sessionUser = getCurrentSessionUser();
+    const sessionUser = getCurrentSessionUser(req);
     const body = await req.json();
 
     const parseResult = ChangePreviewRequestSchema.safeParse(body);

@@ -116,6 +116,7 @@ export async function updatePreferences(
       ...(input.decorStyle !== undefined ? { decorStyle: input.decorStyle ?? null } : {}),
       ...(input.entertainmentStyle !== undefined ? { entertainmentStyle: input.entertainmentStyle ?? null } : {}),
       ...(input.venueCapacityMax !== undefined ? { venueCapacityMax: input.venueCapacityMax ?? null } : {}),
+      ...(input.customTraditions !== undefined ? { customTraditionsJson: JSON.stringify(input.customTraditions) } : {}),
       updatedAt: now,
     })
     .where(eq(eventPreferences.eventId, eventId))

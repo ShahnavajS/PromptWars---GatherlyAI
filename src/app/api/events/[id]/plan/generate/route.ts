@@ -14,7 +14,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
     const body = await req.json();
     const validated = GeneratePlanRequestSchema.parse(body);
 

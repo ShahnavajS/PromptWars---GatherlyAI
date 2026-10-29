@@ -76,6 +76,7 @@ interface Preferences {
   decorStyle: string | null;
   entertainmentStyle: string | null;
   venueCapacityMax: number | null;
+  customTraditionsJson?: string | null;
   updatedAt?: string | null;
 }
 
@@ -96,6 +97,8 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
   const [accessibilityNotes, setAccessibilityNotes] = useState('');
   const [decorStyle, setDecorStyle] = useState('');
   const [entertainmentStyle, setEntertainmentStyle] = useState('');
+  const [customTraditions, setCustomTraditions] = useState<string[]>([]);
+  const [newTraditionInput, setNewTraditionInput] = useState('');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -116,6 +119,14 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
           setAccessibilityNotes(prefs.accessibilityNotes || '');
           setDecorStyle(prefs.decorStyle || '');
           setEntertainmentStyle(prefs.entertainmentStyle || '');
+          if (prefs.customTraditionsJson) {
+            try {
+              const parsed = JSON.parse(prefs.customTraditionsJson);
+              if (Array.isArray(parsed)) setCustomTraditions(parsed);
+            } catch {
+              // ignore parse error
+            }
+          }
         }
       })
       .catch(() => {
@@ -135,6 +146,18 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
     setEntertainmentStyle(preset.entertainment);
   };
 
+  const handleAddTradition = () => {
+    const trimmed = newTraditionInput.trim();
+    if (trimmed && !customTraditions.includes(trimmed)) {
+      setCustomTraditions([...customTraditions, trimmed]);
+      setNewTraditionInput('');
+    }
+  };
+
+  const handleRemoveTradition = (tag: string) => {
+    setCustomTraditions(customTraditions.filter((t) => t !== tag));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
@@ -147,6 +170,7 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
           accessibilityNotes: accessibilityNotes || null,
           decorStyle: decorStyle || null,
           entertainmentStyle: entertainmentStyle || null,
+          customTraditions,
         }),
       });
       const json = await res.json();
@@ -301,6 +325,58 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
             placeholder="e.g. Wheelchair access required, ground floor seating for elderly, hearing assistance needed"
             className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
           />
+        </div>
+
+        {/* Custom Traditions & Family Rituals */}
+        <div className="mb-6">
+          <label className="block text-sm font-bold text-slate-800 mb-1">
+            Custom Traditions & Family Rituals
+          </label>
+          <p className="text-xs text-slate-500 mb-2">
+            Add specific cultural rituals, family ceremonies, or regional customs to reflect in your plan.
+          </p>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={newTraditionInput}
+              onChange={(e) => setNewTraditionInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddTradition();
+                }
+              }}
+              placeholder="e.g. Ganesh Sthapan, Hastamelap, Cake Cutting"
+              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            />
+            <button
+              type="button"
+              onClick={handleAddTradition}
+              className="rounded-xl bg-amber-100 px-4 py-2 text-xs font-bold text-amber-900 hover:bg-amber-200"
+            >
+              + Add
+            </button>
+          </div>
+          {customTraditions.length > 0 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {customTraditions.map((tradition) => (
+                <span
+                  key={tradition}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
+                >
+                  🪔 {tradition}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTradition(tradition)}
+                    aria-label={`Remove tradition ${tradition}`}
+                    className="ml-1 text-amber-700 hover:text-red-700 font-bold"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3">

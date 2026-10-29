@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateCategoryAllocation } from '@/lib/services/eventService';
 import { UpdateCategoryAllocationSchema } from '@/lib/validation/events';
+import { getCurrentSessionUser } from '@/lib/auth/session';
 import { ZodError } from 'zod';
 
 export async function PATCH(
@@ -13,10 +14,11 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Invalid parameters.' }, { status: 400 });
     }
 
+    const session = getCurrentSessionUser(req);
     const body = await req.json();
     const validated = UpdateCategoryAllocationSchema.parse(body);
 
-    const result = await updateCategoryAllocation(id, categoryId, validated.allocatedPaise);
+    const result = await updateCategoryAllocation(id, categoryId, validated.allocatedPaise, session.id);
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
     if (error instanceof ZodError) {

@@ -42,3 +42,4 @@ coverage/
 # Uploads
 uploads/*
 !uploads/.gitkeep
+private_uploads/

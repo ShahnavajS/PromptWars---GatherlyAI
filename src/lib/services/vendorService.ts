@@ -262,7 +262,7 @@ export async function createQuote(
       categoryId: input.categoryId ?? null,
       quoteTitle: input.quoteTitle,
       quotedAmountPaise: input.quotedAmountPaise,
-      currency: 'INR',
+      currency: input.currency || 'INR',
       quoteDate: input.quoteDate,
       validUntilDate: input.validUntilDate ?? null,
       status: 'RECEIVED',
@@ -271,8 +271,8 @@ export async function createQuote(
       paymentTermsJson: input.paymentTerms ? JSON.stringify(input.paymentTerms) : null,
       cancellationPolicy: input.cancellationPolicy ?? null,
       notes: input.notes ?? null,
-      sourceDocumentName: null,
-      isExtractedByAi: false,
+      sourceDocumentName: input.sourceDocumentName ?? null,
+      isExtractedByAi: Boolean(input.isExtractedByAi),
       confirmedCommitment: false,
       createdAt: now,
       updatedAt: now,
@@ -338,7 +338,8 @@ export async function confirmQuote(
   eventId: string,
   userId: string,
   quoteId: string,
-  categoryId: string
+  categoryId: string,
+  supersedeOthers = false
 ): Promise<ConfirmQuoteResult> {
   await verifyEventOwnership(eventId, userId);
 
@@ -381,6 +382,16 @@ export async function confirmQuote(
   const category = categoryList.length > 0 ? categoryList[0] : null;
   const currentAllocatedPaise = category?.allocatedPaise ?? 0;
 
+  // Idempotency: If already accepted, return cleanly
+  if (quote.status === 'ACCEPTED' && quote.confirmedCommitment) {
+    return {
+      quote,
+      category,
+      quotedAmountPaise: quote.quotedAmountPaise,
+      currentAllocatedPaise,
+    };
+  }
+
   const now = new Date().toISOString();
 
   const executeTransaction = rawSqlite.transaction(() => {
@@ -390,25 +401,34 @@ export async function confirmQuote(
       .where(eq(vendorQuotes.id, quoteId))
       .run();
 
-    // 2. Supersede other quotes for same vendor category in this event
-    // Find all vendors in same category for this event
-    const sameCategory = db
-      .select({ id: vendors.id })
-      .from(vendors)
-      .where(and(eq(vendors.category, vendor.category), eq(vendors.eventId, eventId)))
-      .all();
+    // 2. Supersede competing quotes only when explicitly requested
+    if (supersedeOthers) {
+      if (quote.requirementId) {
+        rawSqlite
+          .prepare(
+            `UPDATE vendor_quotes SET status = 'SUPERSEDED', updated_at = ?
+             WHERE event_id = ? AND id != ? AND requirement_id = ?`
+          )
+          .run(now, eventId, quoteId, quote.requirementId);
+      } else {
+        // Find all vendors in same category for this event
+        const sameCategoryVendors = db
+          .select({ id: vendors.id })
+          .from(vendors)
+          .where(and(eq(vendors.category, vendor.category), eq(vendors.eventId, eventId)))
+          .all();
 
-    const sameCategoryVendorIds = sameCategory.map((v) => v.id);
-
-    // Supersede all other quotes from same-category vendors (except this quote)
-    if (sameCategoryVendorIds.length > 0) {
-      const placeholders = sameCategoryVendorIds.map(() => '?').join(',');
-      rawSqlite
-        .prepare(
-          `UPDATE vendor_quotes SET status = 'SUPERSEDED', updated_at = ?
-           WHERE event_id = ? AND id != ? AND vendor_id IN (${placeholders})`
-        )
-        .run(now, eventId, quoteId, ...sameCategoryVendorIds);
+        const sameCategoryVendorIds = sameCategoryVendors.map((v) => v.id);
+        if (sameCategoryVendorIds.length > 0) {
+          const placeholders = sameCategoryVendorIds.map(() => '?').join(',');
+          rawSqlite
+            .prepare(
+              `UPDATE vendor_quotes SET status = 'SUPERSEDED', updated_at = ?
+               WHERE event_id = ? AND id != ? AND vendor_id IN (${placeholders})`
+            )
+            .run(now, eventId, quoteId, ...sameCategoryVendorIds);
+        }
+      }
     }
 
     // 3. Update budget category rateProvenance
@@ -483,6 +503,15 @@ export async function applyQuoteToBudget(
   }
 
   const quote = quoteList[0];
+
+  // Currency mismatch check
+  const eventRecord = db.select({ currency: events.currency }).from(events).where(eq(events.id, eventId)).all()[0];
+  const eventCurrency = eventRecord?.currency || 'INR';
+  if (quote.currency && quote.currency !== eventCurrency) {
+    throw new Error(
+      `Currency mismatch: Quote is denominated in ${quote.currency}, but event budget is denominated in ${eventCurrency}. Explicit conversion is required before merging into budget.`
+    );
+  }
 
   // Get budget category
   const categoryList = db

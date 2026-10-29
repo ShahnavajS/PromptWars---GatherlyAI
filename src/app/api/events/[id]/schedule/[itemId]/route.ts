@@ -10,7 +10,7 @@ export async function PATCH(
 ) {
   try {
     const { id, itemId } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const body = await req.json();
     const validated = UpdateScheduleItemSchema.parse(body);
@@ -40,12 +40,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; itemId: string }> }
 ) {
   try {
     const { id, itemId } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     await deleteScheduleItem(id, session.id, itemId);
     return NextResponse.json({ success: true });

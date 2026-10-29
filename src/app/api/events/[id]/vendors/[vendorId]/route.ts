@@ -5,12 +5,12 @@ import { UpdateVendorSchema } from '@/lib/validation/vendor';
 import { ZodError } from 'zod';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; vendorId: string }> }
 ) {
   try {
     const { id, vendorId } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const vendor = await getVendorById(id, session.id, vendorId);
     if (!vendor) {
@@ -32,7 +32,7 @@ export async function PATCH(
 ) {
   try {
     const { id, vendorId } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const body = await req.json();
     const validated = UpdateVendorSchema.parse(body);
@@ -62,12 +62,12 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string; vendorId: string }> }
 ) {
   try {
     const { id, vendorId } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     await deleteVendor(id, session.id, vendorId);
     return NextResponse.json({ success: true });

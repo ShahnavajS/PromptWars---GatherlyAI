@@ -6,12 +6,12 @@ import { UpdatePreferencesSchema } from '@/lib/validation/preferences';
 import { ZodError } from 'zod';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const preferences = await getPreferences(id, session.id);
     return NextResponse.json({ success: true, data: { preferences, presets: CULTURAL_PRESETS } });
@@ -30,7 +30,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const body = await req.json();
     const validated = UpdatePreferencesSchema.parse(body);

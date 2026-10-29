@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateTask } from '@/lib/services/eventService';
 import { UpdateTaskSchema } from '@/lib/validation/events';
+import { getCurrentSessionUser } from '@/lib/auth/session';
 import { ZodError } from 'zod';
 
 export async function PATCH(
@@ -13,10 +14,11 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: 'Invalid parameters.' }, { status: 400 });
     }
 
+    const session = getCurrentSessionUser(req);
     const body = await req.json();
     const validated = UpdateTaskSchema.parse(body);
 
-    const updatedTask = await updateTask(id, taskId, validated);
+    const updatedTask = await updateTask(id, taskId, validated, session.id);
     return NextResponse.json({ success: true, data: updatedTask });
   } catch (error: unknown) {
     if (error instanceof ZodError) {

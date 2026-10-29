@@ -7,6 +7,7 @@ export const UpdatePreferencesSchema = z.object({
   decorStyle: z.string().trim().max(200).optional().nullable(),
   entertainmentStyle: z.string().trim().max(200).optional().nullable(),
   venueCapacityMax: z.number().int().positive().optional().nullable(),
+  customTraditions: z.array(z.string().trim().max(100)).optional(),
 });
 
 export type UpdatePreferencesInput = z.infer<typeof UpdatePreferencesSchema>;

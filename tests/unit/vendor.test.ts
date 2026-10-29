@@ -96,7 +96,7 @@ describe('Vendor Hub & Quotation Intelligence (Unit & Service)', () => {
 
     // 3. Confirm Quote A (Phase 1: Confirmation without silent budget mutation)
     const initialCategoryAllocation = cateringCategory.allocatedPaise;
-    const confirmResult = await confirmQuote(eventId, userId, quoteA.id, cateringCategory.id);
+    const confirmResult = await confirmQuote(eventId, userId, quoteA.id, cateringCategory.id, true);
 
     expect(confirmResult.quote.status).toBe('ACCEPTED');
     expect(confirmResult.quote.confirmedCommitment).toBe(true);

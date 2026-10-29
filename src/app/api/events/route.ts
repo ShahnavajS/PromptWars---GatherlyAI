@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createEvent, listEvents } from '@/lib/services/eventService';
 import { CreateEventSchema } from '@/lib/validation/events';
+import { getCurrentSessionUser } from '@/lib/auth/session';
 import { ZodError } from 'zod';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const events = await listEvents();
+    const session = getCurrentSessionUser(req);
+    const events = await listEvents(session.id);
     return NextResponse.json({ success: true, events });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to fetch events.';
@@ -15,10 +17,11 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const session = getCurrentSessionUser(req);
     const body = await req.json();
     const validated = CreateEventSchema.parse(body);
 
-    const eventDetail = await createEvent(validated);
+    const eventDetail = await createEvent(validated, session.id);
     return NextResponse.json({ success: true, data: eventDetail }, { status: 201 });
   } catch (error: unknown) {
     if (error instanceof ZodError) {

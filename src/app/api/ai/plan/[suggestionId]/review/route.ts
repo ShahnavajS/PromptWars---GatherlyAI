@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: Promise<{ suggestionId: string }> }
 ) {
   try {
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
     const { suggestionId } = await params;
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get('eventId');

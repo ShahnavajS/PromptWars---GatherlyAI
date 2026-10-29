@@ -10,12 +10,12 @@ export async function POST(
 ) {
   try {
     const { id, quoteId } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const body = await req.json();
     const validated = ConfirmQuoteSchema.parse(body);
 
-    const result = await confirmQuote(id, session.id, quoteId, validated.categoryId);
+    const result = await confirmQuote(id, session.id, quoteId, validated.categoryId, validated.supersedeOthers);
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
     if (error instanceof ZodError) {

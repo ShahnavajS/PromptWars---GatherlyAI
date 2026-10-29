@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventById } from '@/lib/services/eventService';
+import { getCurrentSessionUser } from '@/lib/auth/session';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -11,7 +12,8 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Invalid event ID.' }, { status: 400 });
     }
 
-    const eventDetail = await getEventById(id);
+    const session = getCurrentSessionUser(req);
+    const eventDetail = await getEventById(id, session.id);
     if (!eventDetail) {
       return NextResponse.json({ success: false, error: 'Event not found.' }, { status: 404 });
     }

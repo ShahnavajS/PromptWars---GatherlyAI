@@ -46,6 +46,8 @@ export const CreateEventSchema = z
       .min(1000, 'Minimum budget is ₹1,000.')
       .max(1000000000, 'Maximum budget is ₹100 Crore.'),
     timezone: z.string().optional().default('Asia/Kolkata'),
+    culturalPreset: z.enum(['GUJARATI', 'PUNJABI', 'SOUTH_INDIAN', 'BENGALI', 'MODERN', 'COMMUNITY']).optional(),
+    dietaryPreference: z.enum(['PURE_VEG', 'JAIN_AVAILABLE', 'VEGAN', 'HALAL', 'MIXED']).optional(),
   })
   .refine(
     (data) => {

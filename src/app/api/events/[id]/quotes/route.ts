@@ -5,12 +5,12 @@ import { CreateQuoteSchema } from '@/lib/validation/vendor';
 import { ZodError } from 'zod';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const quotes = await getQuotesForEvent(id, session.id);
     return NextResponse.json({ success: true, data: quotes });
@@ -29,7 +29,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const body = await req.json();
     const validated = CreateQuoteSchema.parse(body);

@@ -5,12 +5,12 @@ import { CreateScheduleItemSchema } from '@/lib/validation/schedule';
 import { ZodError } from 'zod';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const items = await getScheduleItems(id, session.id);
     const conflicts = detectConflicts(items);
@@ -31,7 +31,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const body = await req.json();
     const validated = CreateScheduleItemSchema.parse(body);

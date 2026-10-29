@@ -6,10 +6,9 @@ Gatherly AI is a GenAI-powered event planning and coordination platform designed
 
 ---
 
-## 🌟 Implemented Capabilities (Phase 4 — Change-Impact Intelligence)
+## 🌟 Implemented Capabilities (Phases 1–6 Complete)
 
-### Explainable Change-Impact Intelligence (Phase 4 — New)
-
+### 1. Explainable Change-Impact Intelligence (Flagship Differentiator)
 - **Deterministic Relational Impact Engine:**
   - Evaluates consequences of requirement changes (guest count, start/end dates, total budget, city relocation) without guessing or fabricating numbers.
   - Distinguishes **Calculated Changes** (e.g. per-guest catering scaling, milestone deadline shifts) from **Items Requiring Review** (e.g. venue capacity, decor supplier quantities, unscheduled tasks) and **Constraint Violations** (e.g. budget deficits, reversed date ranges, past dates).
@@ -17,43 +16,61 @@ Gatherly AI is a GenAI-powered event planning and coordination platform designed
   - **Stage 1 (Preview):** Computes explainable findings on an immutable snapshot. Database state is never modified.
   - **Stage 2 (Confirm):** Validates optimistic concurrency (`version`), atomically applies primary requirement updates, and applies only explicitly user-checked side-effects in a single SQLite transaction.
   - **Cancellation:** Discards the preview cleanly with zero side-effects.
-- **Stale State & Concurrency Conflict Defense:**
-  - Optimistic concurrency control via `version` column on events.
-  - Prevents race conditions where an interim update occurred between preview and confirmation, returning HTTP 409 Conflict with clear guidance to re-evaluate on fresh state.
+- **Task Deadline Provenance Guard:**
+  - Distinguishes `EVENT_RELATIVE`, `FIXED_DATE`, `USER_SET`, and `UNKNOWN`.
+  - Date shifts only adjust tasks with verified event-relative provenance; fixed-date vendor deadlines, completed tasks, and user-locked milestones are never shifted automatically.
 - **Audit Provenance & Change History:**
   - `event_activities` table tracks all confirmed requirement changes with actor attribution, previous/new JSON snapshots, and approved side-effect lists.
   - Interactive history timeline on the dashboard with expandable technical snapshots.
 
-### AI Planning (Phase 3)
+### 2. Multi-Day Timeline & Time-Slotted Schedules
+- **Day-by-Day Agenda:**
+  - Supports multi-day Indian celebrations (e.g. Day 1 Mehendi & Sangeet, Day 2 Haldi, Wedding & Reception).
+  - Time-slotted schedule items with ceremony titles, locations, descriptions, and responsible contacts.
+  - Automated detection of overlapping time windows and schedule conflicts.
 
+### 3. Vendor Quotation Intelligence & PDF Document Extraction
+- **Evidence-Based Quotation Management:**
+  - Tracks vendor requirements, itemized quotes, inclusions, exclusions, and payment terms.
+  - Two-phase quote approval: confirming a quote locks the commitment without mutating budget allocations until the user explicitly applies it.
+  - Safe superseding semantics: only supersedes competing quotes in the same scope when explicitly opted-in (`supersedeOthers: true`).
+- **Private Quotation Document Upload & Extraction:**
+  - Multipart PDF upload with strict validation: 5 MB limit, authentic PDF magic bytes (`%PDF-`), sanitized filenames, and path traversal defense.
+  - Files stored securely in `private_uploads/quotations/<eventId>/` outside the public web root.
+  - Dual extraction pipeline: High-precision GenAI extraction via Gemini (`@google/genai`) with graceful fallback to deterministic heuristic text stream parsing when offline.
+  - Extracted fields staged in a review modal (`✓ Extracted` vs `— Missing in Document` badges); never committed without explicit user review.
+- **Multi-Currency Safety:**
+  - Preserves quotation currency (`INR`, `USD`, `EUR`, `GBP`).
+  - Nominal raw comparison across different currencies is disabled; currency notice banners highlight differing currencies.
+  - Prevents applying foreign-currency quotations to an INR budget category without explicit conversion.
+
+### 4. Cultural Customization & Regional Presets
+- **Authentic Regional Presets:**
+  - Pre-configured regional wedding catalogs: Gujarati, Punjabi, South Indian, Bengali, Modern/Contemporary, and Community.
+  - Captures traditional ceremonies (e.g. Garba, Dandiya, Haldi, Vidai, Baraat, Muhurtham), authentic decor motifs, and entertainment styles.
+  - Dietary preferences: Pure Veg, Jain Available, Vegan, Halal, Mixed.
+  - Elder accessibility accommodations and wheelchair flags.
+  - Custom traditions tag manager: Add, delete, and view custom rituals saved directly to `customTraditionsJson`.
+  - Neutral defaults: Weddings default to modern neutral configurations unless the user explicitly chooses regional presets.
+
+### 5. GenAI Event Planning & Intake Engine
 - **Google Gemini Integration:**
-  - Natural language event description → structured, personalized plan via `gemini-2.5-flash`.
-  - All AI calls are **server-side only** — `GEMINI_API_KEY` never reaches the browser.
-  - Graceful deterministic fallback when the API key is not configured (clearly labelled, never presented as AI output).
+  - Natural language event description → structured, schema-compliant plan via `gemini-2.5-flash`.
+  - Server-side only: `GEMINI_API_KEY` never reaches the browser.
+  - Structured Output Schema grounding & resilient pre-normalization: Tolerant of LLM casing or wrapper variations without crashing.
   - Prompt injection defense: `<system>` tag sanitization on all user-supplied text.
-- **Structured Plan Generation:**
-  - AI produces a validated, schema-compliant plan: concept & theme, cultural personalization, budget category proposals, tasks with priorities, agenda blocks, and vendor requirements.
+  - Graceful deterministic fallback when the API key is not configured (clearly labelled, never presented as AI output).
 - **Reviewable Suggestions (AI proposes → user decides):**
   - Generated plans are staged as `PENDING_REVIEW` — nothing changes until the user acts.
   - **Accept All**, **Accept Selected**, or **Reject All** with idempotent task deduplication.
-- **Budget Model Fixed:**
-  - Invariant guaranteed: `sum(category allocations) + contingency = totalBudget` exactly.
+  - Budget model invariant: `sum(category allocations) + contingency = totalBudget` guaranteed down to 0 paise drift.
 
-### Event Planning Foundation (Phase 2)
-
-- **Event Creation Flow** — Weddings, Birthdays, Community, Celebrations with full Zod validation.
-- **Deterministic Financial Engine** — 100% integer paise arithmetic, Indian number formatting (₹, Lakhs, Crores), over-budget detection.
-- **Event Command Center Dashboard** — countdown, budget editor, task checklist, next-action card.
-- **Robust Database Layer** — SQLite + Drizzle ORM, enforced foreign keys, versioned migrations (`0000`, `0001`, `0002`), cascading deletes.
-
----
-
-## 🚫 Explicitly Unimplemented (Deferred to Subsequent Phases)
-
-- **Vendor Quotation Ingestion & Comparison:** Multi-quote comparison and document OCR → **Phase 5**.
-- **Multi-Day Time-Slotted Timeline View:** Detailed hourly ceremony agendas and vendor run-of-show → **Phase 5**.
-- **Multi-User Authentication:** Multi-tenant session management deferred; app runs in single `usr_demo` local mode. See [Authentication Limitation](#authentication-limitation).
-- **Direct Financial Payments:** No live UPI/banking transactions.
+### 6. Authentication & Session Security
+- **HMAC-SHA256 Signed Session Tokens:**
+  - Server-verified session tokens stored in HTTP-only cookies or `Authorization: Bearer` header.
+  - Protects against tampering: signature mismatch or expired token immediately rejected.
+  - All database queries enforce event ownership: `WHERE event_id = ? AND user_id = ?`.
+  - Demo user fallback enabled in development/testing; production guard (`ALLOW_DEMO_AUTH=false`) strictly requires authentication.
 
 ---
 
@@ -70,24 +87,25 @@ npm install
 
 ### Environment Configuration
 
-Copy `.env.example` to `.env.local` and fill in your values:
+Copy `.env.example` to `.env.local`:
 
 ```bash
 cp .env.example .env.local
 ```
 
-The only value that unlocks AI features is `GEMINI_API_KEY`:
-
+Configure your environment variables:
 ```env
-# Required for AI plan generation (get from https://aistudio.google.com/app/apikey)
+# Google Gemini API Key (get from https://aistudio.google.com/app/apikey)
 GEMINI_API_KEY=your-gemini-api-key-here
 
-# Optional overrides (all have working defaults)
-# GEMINI_MODEL=gemini-2.5-flash
-# DATABASE_URL=./data/gatherly.db
+# Optional model override (default: gemini-2.5-flash)
+GEMINI_MODEL=gemini-2.5-flash
+
+# Optional session secret
+AUTH_SECRET=your-32-char-session-secret-key-here
 ```
 
-**Without `GEMINI_API_KEY`:** Gatherly falls back to deterministic starter templates. All other functionality (event creation, budgeting, tasks) works normally.
+**Without `GEMINI_API_KEY`:** Gatherly falls back to deterministic starter templates. All other features (event creation, budgeting, tasks, timeline, quotes, change impact) work completely offline.
 
 ### Running Locally
 
@@ -95,7 +113,7 @@ GEMINI_API_KEY=your-gemini-api-key-here
 npm run dev      # http://localhost:3000
 ```
 
-The SQLite database (`data/gatherly.db`) is created automatically on first run.
+The SQLite database (`data/gatherly.db`) is initialized automatically with versioned migrations on first run.
 
 ---
 
@@ -108,30 +126,36 @@ The SQLite database (`data/gatherly.db`) is created automatically on first run.
 | `npm run test:watch` | Vitest in interactive watch mode |
 | `npm run type-check` | TypeScript strict type check (`tsc --noEmit`) |
 | `npm run lint` | ESLint with Next.js Core Web Vitals rules |
-| `npm run build` | Optimized production build |
-| `npm run verify` | Full gate: `type-check && lint && test && build` |
+| `npm run build` | Optimized Next.js production build |
+| `npm run verify` | Full quality gate: `type-check && lint && test && build` |
 | `npm run db:generate` | Generate versioned Drizzle migration |
 | `npm run db:push` | Push schema directly (dev convenience) |
 
 ---
 
-## 🧪 Test Coverage Summary (Phase 4)
+## 🧪 Test Coverage Summary (Phase 6 Final Baseline)
 
 | File | Tests | What it covers |
 | :--- | :---: | :--- |
+| `tests/unit/document-extraction.test.ts` | 7 | PDF magic bytes (`%PDF-`), 5MB size limit, private storage isolation, heuristic field parsing |
+| `tests/unit/auth-isolation.test.ts` | 8 | HMAC-SHA256 session token signing, verification, tampering rejection, cookie/bearer extraction, demo guard |
+| `tests/unit/quote-comparison.test.ts` | 3 | Multi-currency quote tracking, currency mismatch defense on budget apply, safe superseding opt-in, idempotency |
+| `tests/unit/vendor.test.ts` | 1 | Vendor management, evidence-based quote recording, 2-phase budget approval |
+| `tests/unit/schedule.test.ts` | 5 | Multi-day schedule items, time slots, conflict detection, date range bounds |
+| `tests/unit/cultural.test.ts` | 4 | Cultural preset catalog, dietary validation, preferences persistence, custom traditions |
 | `tests/unit/change-impact.test.ts` | 15 | Deterministic impact engine rules (guest scaling, date shift, budget deficit, venue) |
 | `tests/unit/budget.test.ts` | 16 | Integer paise arithmetic, zero drift, over-budget detection |
 | `tests/unit/budget-regression.test.ts` | 6 | Financial invariant: categories + contingency = total |
 | `tests/unit/formatting.test.ts` | 7 | Indian currency & date formatting (`Asia/Kolkata`) |
 | `tests/unit/seeding.test.ts` | 4 | Category/task seeding without 1-paisa drift |
-| `tests/unit/ai-service.test.ts` | 9 | Gemini client, prompt injection defense, fallback templates |
+| `tests/unit/ai-service.test.ts` | 9 | Gemini client, prompt injection defense, fallback templates, schema validation |
 | `tests/integration/change-impact.test.ts` | 5 | Preview purity, atomic commit, side-effects, concurrency 409, auth isolation |
 | `tests/integration/change-impact-api.test.ts` | 6 | Change impact preview/confirm/history REST API routes |
 | `tests/integration/events.test.ts` | 6 | Atomic transactions, FK cascades, user isolation |
 | `tests/integration/api.test.ts` | 8 | REST validation, 400/404 responses |
 | `tests/integration/plan-review.test.ts` | 6 | Stage → accept/reject/partial, idempotency, auth isolation |
 | `tests/integration/ai-api.test.ts` | 7 | AI plan POST/GET, review route, fallback path |
-| **Total** | **95** | **All 12 test files passing (100%)** |
+| **Total** | **123** | **All 18 test files passing (100%)** |
 
 ---
 
@@ -142,23 +166,17 @@ The SQLite database (`data/gatherly.db`) is created automatically on first run.
 | [`docs/PRODUCT_SPEC.md`](./docs/PRODUCT_SPEC.md) | Product specification, personas, use cases, non-goals |
 | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | System architecture, module structure, request lifecycles |
 | [`docs/DATA_MODEL.md`](./docs/DATA_MODEL.md) | Entity relationships, table schemas, financial invariants |
-| [`docs/SECURITY_AND_PRIVACY.md`](./docs/SECURITY_AND_PRIVACY.md) | Threat model, IDOR protection, prompt injection defense |
+| [`docs/SECURITY_AND_PRIVACY.md`](./docs/SECURITY_AND_PRIVACY.md) | Threat model, IDOR protection, prompt injection defense, signed sessions |
 | [`docs/EVALUATION_RUBRIC.md`](./docs/EVALUATION_RUBRIC.md) | 14 measurable quality standards |
-| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | 6-phase engineering execution plan |
+| [`docs/ROADMAP.md`](./docs/ROADMAP.md) | 6-phase engineering execution plan and completion record |
 
 ---
 
-## ⚠️ Known Limitations
+## 🔒 Security & Privacy Architecture
 
-### Authentication Limitation
-
-Gatherly currently runs in **single-user demo mode**. All sessions resolve to `usr_demo` (enforced in `src/lib/auth/session.ts`). There is no sign-up, login, or token-based auth.
-
-- All data is scoped to `user_id = 'usr_demo'` — the database enforces `WHERE event_id = ? AND user_id = ?` on every write, preventing cross-session access even within the demo.
-- A `ALLOW_DEMO_AUTH=true` guard prevents the demo session from being used in a production environment without an explicit opt-in.
-- **Multi-user auth is scheduled for a later phase** and will require replacing `getCurrentSessionUser()` with a real session provider.
-
-### Database Engine
-
-SQLite via `better-sqlite3` for local development. Production deployments should configure PostgreSQL via Drizzle ORM (configuration change only — no application code changes required).
-
+- **Server-Verified Session Tokens:** Cryptographically signed tokens (HMAC-SHA256) prevent client identity spoofing.
+- **Tenant Isolation:** Every database mutation and query scopes by `eventId` AND `userId`. Unowned records return 404.
+- **Isolated File Storage:** Uploaded vendor PDF documents are stored outside the public `public/` directory in `private_uploads/quotations/<eventId>/`, inaccessible via direct URL requests.
+- **Strict File Upload Validation:** File magic bytes (`%PDF-`) and size caps (5 MB) are verified on binary buffers before saving to disk.
+- **API Key Secrecy:** `GEMINI_API_KEY` is exclusively consumed in server-side Next.js route handlers and is never shipped in client bundles.
+- **Prompt Injection Defense:** Injected `<system>` tags in user-supplied event notes are stripped prior to LLM evaluation.

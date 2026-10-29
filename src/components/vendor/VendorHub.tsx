@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { formatINR } from '@/lib/domain/formatting';
 import QuoteComparisonView from './QuoteComparisonView';
+import QuotationExtractionModal from './QuotationExtractionModal';
+import { ExtractedQuotationCandidate } from '@/lib/services/quotationExtractionService';
 
 interface Vendor {
   id: string;
@@ -23,6 +25,7 @@ interface VendorQuote {
   vendorId: string;
   quoteTitle: string;
   quotedAmountPaise: number;
+  currency?: string;
   quoteDate: string;
   validUntilDate: string | null;
   status: string;
@@ -31,6 +34,8 @@ interface VendorQuote {
   paymentTermsJson: string | null;
   cancellationPolicy: string | null;
   notes: string | null;
+  sourceDocumentName?: string | null;
+  isExtractedByAi?: boolean;
   confirmedCommitment: boolean;
 }
 
@@ -80,6 +85,8 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
   const [saving, setSaving] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [comparisonVendor, setComparisonVendor] = useState<Vendor | null>(null);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [extractedCandidate, setExtractedCandidate] = useState<ExtractedQuotationCandidate | null>(null);
 
   const [vendorForm, setVendorForm] = useState({
     name: '',
@@ -147,6 +154,38 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
       ignore = true;
     };
   }, [eventId]);
+
+  const handleUploadQuotationPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      alert('Only authentic PDF documents (.pdf) can be uploaded.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    setUploadingDoc(true);
+
+    try {
+      const res = await fetch(`/api/events/${eventId}/quotes/extract-document`, {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setExtractedCandidate(json.data);
+      } else {
+        alert(json.error || 'Failed to extract quotation data.');
+      }
+    } catch {
+      alert('Network error while processing quotation document.');
+    } finally {
+      setUploadingDoc(false);
+      e.target.value = '';
+    }
+  };
 
   const handleAddVendor = async () => {
     if (!vendorForm.name.trim()) {
@@ -316,18 +355,45 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
         />
       )}
 
+      {/* PDF Quotation Extraction Review Modal */}
+      {extractedCandidate && (
+        <QuotationExtractionModal
+          candidate={extractedCandidate}
+          vendors={vendors.map((v) => ({ id: v.id, name: v.name, category: v.category }))}
+          eventId={eventId}
+          onSaved={() => {
+            fetchData();
+            showToast('Verified quotation saved! 🎉');
+          }}
+          onClose={() => setExtractedCandidate(null)}
+        />
+      )}
+
       <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-5 border-b border-amber-100 pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-amber-100 pb-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Vendor Hub</h2>
-            <p className="text-xs text-slate-500">{vendors.length} vendors • {quotes.length} quotes</p>
+            <p className="text-xs text-slate-500">{vendors.length} vendors • {quotes.length} quotations recorded</p>
           </div>
-          <button
-            onClick={() => setShowAddVendor(true)}
-            className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-500"
-          >
-            + Add Vendor
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <label className="cursor-pointer rounded-xl border border-orange-300 bg-orange-50 px-3.5 py-2 text-xs font-bold text-orange-900 hover:bg-orange-100 flex items-center gap-1.5 transition-colors">
+              <span>📄</span>
+              <span>{uploadingDoc ? 'Extracting PDF...' : 'Upload Quotation PDF'}</span>
+              <input
+                type="file"
+                accept="application/pdf"
+                disabled={uploadingDoc}
+                onChange={handleUploadQuotationPdf}
+                className="hidden"
+              />
+            </label>
+            <button
+              onClick={() => setShowAddVendor(true)}
+              className="rounded-xl bg-orange-600 px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-orange-500"
+            >
+              + Add Vendor
+            </button>
+          </div>
         </div>
 
         {/* Add Vendor Form */}
@@ -521,6 +587,11 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                                         {q.confirmedCommitment && (
                                           <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
                                             ✓ Confirmed
+                                          </span>
+                                        )}
+                                        {q.isExtractedByAi && (
+                                          <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-800" title={`Extracted from ${q.sourceDocumentName || 'uploaded PDF'}`}>
+                                            📄 Extracted PDF
                                           </span>
                                         )}
                                       </div>

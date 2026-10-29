@@ -3,7 +3,7 @@ import { getEventHistory, UnauthorizedEventError } from '@/lib/services/changeIm
 import { getCurrentSessionUser } from '@/lib/auth/session';
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -12,7 +12,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Invalid event ID.' }, { status: 400 });
     }
 
-    const sessionUser = getCurrentSessionUser();
+    const sessionUser = getCurrentSessionUser(req);
     const history = await getEventHistory(eventId, sessionUser.id);
 
     return NextResponse.json({ success: true, history });

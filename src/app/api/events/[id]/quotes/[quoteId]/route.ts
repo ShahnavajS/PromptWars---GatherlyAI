@@ -13,7 +13,7 @@ export async function PATCH(
 ) {
   try {
     const { id, quoteId } = await params;
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
 
     const body = await req.json();
     const validated = UpdateQuoteStatusSchema.parse(body);

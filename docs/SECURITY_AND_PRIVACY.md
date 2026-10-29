@@ -58,6 +58,27 @@ flowchart LR
 ## 3. Privacy & Compliance Principles (DPDP & GDPR Alignment)
 
 1. **Data Minimization:** Only collect event details necessary for coordination. No tracking cookies or invasive analytics.
+2. **Purpose Limitation:** Event information is processed strictly for planning, budgeting, timeline generation, and vendor quotation comparison.
+3. **Storage Limitation & Private Uploads:** Uploaded vendor PDF documents are stored in `private_uploads/quotations/<eventId>/` outside the web server root. They cannot be executed or served directly over HTTP.
+4. **Integrity & Confidentiality (Integer Paise):** All monetary values are maintained strictly in minor integer units (paise) to eliminate floating-point drift and discrepancies.
+
+---
+
+## 4. Authentication, Session Tokens & Boundaries
+
+- **Signed Session Tokens (HMAC-SHA256):**
+  - Session tokens are cryptographically signed using a server-side secret (`AUTH_SECRET`).
+  - Delivered via HTTP-only cookies (`gatherly_session`) or `Authorization: Bearer` headers.
+  - Constant-time verification (`crypto.timingSafeEqual`) defends against timing attacks.
+  - Expired tokens and tampered payload signatures are rejected immediately.
+- **Honest Multi-User Status & Demo Mode Guard:**
+  - In development and test environments, unauthenticated requests gracefully resolve to `DEMO_USER` (`usr_demo`) for convenience.
+  - In production environments, `ALLOW_DEMO_AUTH=false` enforces strict authentication rejection (`UnauthorizedSessionError`).
+- **File Upload Security:**
+  - Files are restricted to authentic PDF format with binary magic byte inspection (`%PDF-`).
+  - Strict 5MB file size limit enforced before writing to disk.
+  - Paths are validated using `path.resolve` and checked against parent directory prefixes to eliminate path traversal vulnerabilities.
+
 2. **Right to Erasure (Delete Event):** When a user deletes an event, cascading foreign keys completely purge the event, its preferences, budget, categories, expenses, tasks, guests, and vendor quotes from the database and storage.
 3. **No Training on User Data:** Explicitly configure Gemini API calls with zero user-data retention for model training where supported by enterprise parameters.
 4. **Audit Logging:** Every administrative action is written to `event_activities` with immutable timestamps for non-repudiation.
