@@ -16,6 +16,7 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
       timezone: 'Asia/Kolkata',
       currency: 'INR',
       targetGuestCount: 200,
+      venueCapacityMax: null,
       venueName: 'The Grand Bhagwati',
       venueCity: 'Ahmedabad',
       version: 1,
@@ -38,6 +39,8 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
         name: 'Catering & Dining',
         allocatedPaise: 42000000, // ₹4.2 Lakh (~₹2,100/guest for 200 guests)
         estimatedPaise: 42000000,
+        rateProvenance: 'INFERRED_ESTIMATE',
+        unitRatePaise: null,
         sortOrder: 0,
         createdAt: '2026-10-01T00:00:00Z',
         updatedAt: '2026-10-01T00:00:00Z',
@@ -49,6 +52,8 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
         name: 'Venue & Staging',
         allocatedPaise: 36000000, // ₹3.6 Lakh
         estimatedPaise: 36000000,
+        rateProvenance: 'UNKNOWN_RATE',
+        unitRatePaise: null,
         sortOrder: 1,
         createdAt: '2026-10-01T00:00:00Z',
         updatedAt: '2026-10-01T00:00:00Z',
@@ -60,6 +65,8 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
         name: 'Decor & Flowers',
         allocatedPaise: 18000000, // ₹1.8 Lakh
         estimatedPaise: 18000000,
+        rateProvenance: 'UNKNOWN_RATE',
+        unitRatePaise: null,
         sortOrder: 2,
         createdAt: '2026-10-01T00:00:00Z',
         updatedAt: '2026-10-01T00:00:00Z',
@@ -71,6 +78,8 @@ describe('Deterministic Change-Impact Engine (Unit Tests)', () => {
         name: 'Photography & Cinema',
         allocatedPaise: 12000000, // ₹1.2 Lakh
         estimatedPaise: 12000000,
+        rateProvenance: 'UNKNOWN_RATE',
+        unitRatePaise: null,
         sortOrder: 3,
         createdAt: '2026-10-01T00:00:00Z',
         updatedAt: '2026-10-01T00:00:00Z',

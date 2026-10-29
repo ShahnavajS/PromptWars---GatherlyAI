@@ -6,6 +6,9 @@ import { EventDetail } from '@/lib/services/eventService';
 import { formatINR, formatCompactINR, formatDate, calculateDaysRemaining } from '@/lib/domain/formatting';
 import PlanGeneratorView from '@/components/ai/PlanGeneratorView';
 import ChangeImpactView from '@/components/impact/ChangeImpactView';
+import TimelineView from '@/components/schedule/TimelineView';
+import VendorHub from '@/components/vendor/VendorHub';
+import CulturalPreferencesPanel from '@/components/cultural/CulturalPreferencesPanel';
 
 export default function EventDashboardPage({
   params,
@@ -18,7 +21,7 @@ export default function EventDashboardPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'ai-planner' | 'change-impact'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'ai-planner' | 'change-impact' | 'timeline' | 'vendors' | 'preferences'>('overview');
 
   // Category editing state
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -295,11 +298,10 @@ export default function EventDashboardPage({
       <div className="mb-8 flex items-center gap-3 border-b border-amber-200/80 pb-3">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
-            activeTab === 'overview'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${activeTab === 'overview'
               ? 'bg-orange-600 text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-amber-50'
-          }`}
+            }`}
         >
           <span>📊</span>
           <span>Overview & Live Budget</span>
@@ -307,11 +309,10 @@ export default function EventDashboardPage({
 
         <button
           onClick={() => setActiveTab('ai-planner')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
-            activeTab === 'ai-planner'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${activeTab === 'ai-planner'
               ? 'bg-orange-600 text-white shadow-sm'
               : 'bg-gradient-to-r from-amber-50 to-orange-50 text-orange-900 border border-orange-300 hover:bg-orange-100/60'
-          }`}
+            }`}
         >
           <span>✨</span>
           <span>AI Event Planner & Review</span>
@@ -322,17 +323,49 @@ export default function EventDashboardPage({
 
         <button
           onClick={() => setActiveTab('change-impact')}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${
-            activeTab === 'change-impact'
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${activeTab === 'change-impact'
               ? 'bg-orange-600 text-white shadow-sm'
               : 'bg-white text-slate-700 border border-slate-200 hover:bg-amber-50'
-          }`}
+            }`}
         >
           <span>⚡</span>
           <span>Change Impact & History</span>
           <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-900">
             Intelligence
           </span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('timeline')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${activeTab === 'timeline'
+              ? 'bg-orange-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-amber-50'
+            }`}
+        >
+          <span>🗓️</span>
+          <span>Timeline</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('vendors')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${activeTab === 'vendors'
+              ? 'bg-orange-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-amber-50'
+            }`}
+        >
+          <span>🏪</span>
+          <span>Vendor Hub</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('preferences')}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${activeTab === 'preferences'
+              ? 'bg-orange-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 border border-slate-200 hover:bg-amber-50'
+            }`}
+        >
+          <span>🎨</span>
+          <span>Cultural & Preferences</span>
         </button>
       </div>
 
@@ -348,6 +381,12 @@ export default function EventDashboardPage({
         />
       ) : activeTab === 'change-impact' ? (
         <ChangeImpactView eventDetail={data} onApplied={refetchEvent} />
+      ) : activeTab === 'timeline' ? (
+        <TimelineView eventId={event.id} />
+      ) : activeTab === 'vendors' ? (
+        <VendorHub eventId={event.id} categories={data.categories} />
+      ) : activeTab === 'preferences' ? (
+        <CulturalPreferencesPanel eventId={event.id} />
       ) : (
         <>
           {/* Over-budget alert banner if allocations exceed budget */}
@@ -373,279 +412,274 @@ export default function EventDashboardPage({
 
           {/* Grid: Left Column Budget, Right Column Tasks */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Budget Command Center (7 cols) */}
-        <div className="lg:col-span-7 space-y-8">
-          {/* Budget Overview Cards */}
-          <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-3">
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">Budget Command Center</h2>
-                <p className="text-xs text-slate-500">Deterministic Integer-Paise Accounting</p>
-              </div>
-              <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
-                100% Deterministic
-              </span>
-            </div>
-
-            {/* 4 Metrics Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
-                <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
-                  Total Cap
-                </span>
-                <p className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
-                  {formatCompactINR(budgetSummary.totalBudgetPaise)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-orange-50 border border-orange-200 p-3">
-                <span className="text-[11px] font-semibold text-orange-700 uppercase tracking-wide">
-                  Allocated
-                </span>
-                <p className="text-base sm:text-lg font-extrabold text-orange-900 mt-1">
-                  {formatCompactINR(budgetSummary.allocatedTotalPaise)}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3">
-                <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide">
-                  Contingency (10%)
-                </span>
-                <p className="text-base sm:text-lg font-extrabold text-amber-900 mt-1">
-                  {formatCompactINR(budgetSummary.contingencyPaise)}
-                </p>
-              </div>
-
-              <div
-                className={`rounded-2xl border p-3 ${
-                  budgetSummary.isOverBudget
-                    ? 'bg-red-50 border-red-200 text-red-900'
-                    : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                }`}
-              >
-                <span className="text-[11px] font-semibold uppercase tracking-wide">
-                  {budgetSummary.isOverBudget ? 'Deficit' : 'Unallocated'}
-                </span>
-                <p className="text-base sm:text-lg font-extrabold mt-1">
-                  {formatCompactINR(
-                    budgetSummary.isOverBudget
-                      ? budgetSummary.overBudgetPaise
-                      : budgetSummary.remainingPaise
-                  )}
-                </p>
-              </div>
-            </div>
-
-            {/* Utilization Bar */}
-            <div className="mb-2">
-              <div className="flex justify-between text-xs font-semibold mb-1">
-                <span className="text-slate-600">Committed Budget Utilization</span>
-                <span className={budgetSummary.isOverBudget ? 'text-red-600' : 'text-slate-800'}>
-                  {budgetSummary.utilizationPercentage}%
-                </span>
-              </div>
-              <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className={`h-full rounded-full transition-all duration-300 ${
-                    budgetSummary.isOverBudget
-                      ? 'bg-red-500'
-                      : budgetSummary.utilizationPercentage >= 90
-                      ? 'bg-amber-500'
-                      : 'bg-orange-500'
-                  }`}
-                  style={{ width: `${Math.min(100, budgetSummary.utilizationPercentage)}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Categories Allocation List */}
-          <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Category Allocations</h3>
-                <p className="text-xs text-slate-500">Edit any category to recalculate totals</p>
-              </div>
-              <span className="text-xs font-semibold text-slate-500">
-                {categories.length} Categories
-              </span>
-            </div>
-
-            <div className="divide-y divide-amber-100/80">
-              {categories.map((cat) => {
-                const isEditing = editingCategoryId === cat.id;
-                const percentage =
-                  budgetSummary.totalBudgetPaise > 0
-                    ? Math.round((cat.allocatedPaise / budgetSummary.totalBudgetPaise) * 100)
-                    : 0;
-
-                return (
-                  <div key={cat.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 text-sm">{cat.name}</span>
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                          {percentage}% of total
-                        </span>
-                      </div>
-                      <div className="mt-1 text-xs text-slate-500">
-                        Initial Estimate: {formatINR(cat.estimatedPaise)}
-                      </div>
-                    </div>
-
-                    {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <div className="relative">
-                          <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-500">
-                            ₹
-                          </span>
-                          <input
-                            type="number"
-                            min="0"
-                            step="1000"
-                            value={editAmountRupees}
-                            onChange={(e) => setEditAmountRupees(parseInt(e.target.value, 10) || 0)}
-                            className="w-36 rounded-lg border border-orange-400 pl-6 pr-2 py-1.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                          />
-                        </div>
-                        <button
-                          onClick={() => handleSaveCategory(cat.id)}
-                          disabled={savingCategory}
-                          className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-500 disabled:opacity-50"
-                        >
-                          {savingCategory ? '...' : 'Save'}
-                        </button>
-                        <button
-                          onClick={() => setEditingCategoryId(null)}
-                          className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-4">
-                        <span className="text-base font-extrabold text-slate-900">
-                          {formatINR(cat.allocatedPaise)}
-                        </span>
-                        <button
-                          onClick={() => startEditCategory(cat.id, cat.allocatedPaise)}
-                          className="rounded-lg border border-amber-300 bg-amber-50/50 px-2.5 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
-                        >
-                          Edit
-                        </button>
-                      </div>
-                    )}
+            {/* Left Column: Budget Command Center (7 cols) */}
+            <div className="lg:col-span-7 space-y-8">
+              {/* Budget Overview Cards */}
+              <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-3">
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900">Budget Command Center</h2>
+                    <p className="text-xs text-slate-500">Deterministic Integer-Paise Accounting</p>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+                  <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                    100% Deterministic
+                  </span>
+                </div>
 
-        {/* Right Column: Tasks Checklist & Next Actions (5 cols) */}
-        <div className="lg:col-span-5 space-y-8">
-          {/* Preparation Tasks */}
-          <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-3">
-              <div>
-                <h3 className="text-lg font-bold text-slate-900">Preparation Checklist</h3>
-                <p className="text-xs text-slate-500">
-                  {completedTasks} of {tasks.length} tasks completed
-                </p>
-              </div>
-              <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-bold text-orange-800">
-                {taskPercent}% Done
-              </span>
-            </div>
+                {/* 4 Metrics Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+                      Total Cap
+                    </span>
+                    <p className="text-base sm:text-lg font-extrabold text-slate-900 mt-1">
+                      {formatCompactINR(budgetSummary.totalBudgetPaise)}
+                    </p>
+                  </div>
 
-            {/* Task list */}
-            <div className="space-y-3">
-              {tasks.map((task) => {
-                const isDone = task.status === 'DONE';
-                const isUpdating = updatingTaskId === task.id;
+                  <div className="rounded-2xl bg-orange-50 border border-orange-200 p-3">
+                    <span className="text-[11px] font-semibold text-orange-700 uppercase tracking-wide">
+                      Allocated
+                    </span>
+                    <p className="text-base sm:text-lg font-extrabold text-orange-900 mt-1">
+                      {formatCompactINR(budgetSummary.allocatedTotalPaise)}
+                    </p>
+                  </div>
 
-                return (
+                  <div className="rounded-2xl bg-amber-50 border border-amber-200 p-3">
+                    <span className="text-[11px] font-semibold text-amber-700 uppercase tracking-wide">
+                      Contingency (10%)
+                    </span>
+                    <p className="text-base sm:text-lg font-extrabold text-amber-900 mt-1">
+                      {formatCompactINR(budgetSummary.contingencyPaise)}
+                    </p>
+                  </div>
+
                   <div
-                    key={task.id}
-                    className={`flex items-start gap-3 rounded-2xl border p-3.5 transition-all ${
-                      isDone
-                        ? 'border-emerald-200 bg-emerald-50/30'
-                        : 'border-slate-200 bg-white hover:border-amber-300'
-                    }`}
+                    className={`rounded-2xl border p-3 ${budgetSummary.isOverBudget
+                        ? 'bg-red-50 border-red-200 text-red-900'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                      }`}
                   >
-                    <input
-                      type="checkbox"
-                      checked={isDone}
-                      disabled={isUpdating}
-                      onChange={() => handleToggleTask(task.id, task.status)}
-                      className="mt-1 h-5 w-5 rounded border-slate-300 text-orange-600 focus:ring-orange-500 cursor-pointer disabled:opacity-50"
-                    />
-
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span
-                          className={`text-sm font-bold ${
-                            isDone ? 'line-through text-slate-400' : 'text-slate-900'
-                          }`}
-                        >
-                          {task.title}
-                        </span>
-                      </div>
-
-                      {task.description && (
-                        <p className="mt-1 text-xs text-slate-500 line-clamp-2">{task.description}</p>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide">
+                      {budgetSummary.isOverBudget ? 'Deficit' : 'Unallocated'}
+                    </span>
+                    <p className="text-base sm:text-lg font-extrabold mt-1">
+                      {formatCompactINR(
+                        budgetSummary.isOverBudget
+                          ? budgetSummary.overBudgetPaise
+                          : budgetSummary.remainingPaise
                       )}
+                    </p>
+                  </div>
+                </div>
 
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
-                          {task.category}
-                        </span>
-                        <span
-                          className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-                            task.priority === 'CRITICAL'
-                              ? 'bg-rose-100 text-rose-800'
-                              : task.priority === 'HIGH'
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-slate-100 text-slate-700'
-                          }`}
-                        >
-                          {task.priority}
-                        </span>
-                        {task.dueDate && (
-                          <span className="text-[11px] text-slate-400">
-                            Due {formatDate(task.dueDate, { format: 'short' })}
-                          </span>
+                {/* Utilization Bar */}
+                <div className="mb-2">
+                  <div className="flex justify-between text-xs font-semibold mb-1">
+                    <span className="text-slate-600">Committed Budget Utilization</span>
+                    <span className={budgetSummary.isOverBudget ? 'text-red-600' : 'text-slate-800'}>
+                      {budgetSummary.utilizationPercentage}%
+                    </span>
+                  </div>
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full rounded-full transition-all duration-300 ${budgetSummary.isOverBudget
+                          ? 'bg-red-500'
+                          : budgetSummary.utilizationPercentage >= 90
+                            ? 'bg-amber-500'
+                            : 'bg-orange-500'
+                        }`}
+                      style={{ width: `${Math.min(100, budgetSummary.utilizationPercentage)}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Categories Allocation List */}
+              <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Category Allocations</h3>
+                    <p className="text-xs text-slate-500">Edit any category to recalculate totals</p>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {categories.length} Categories
+                  </span>
+                </div>
+
+                <div className="divide-y divide-amber-100/80">
+                  {categories.map((cat) => {
+                    const isEditing = editingCategoryId === cat.id;
+                    const percentage =
+                      budgetSummary.totalBudgetPaise > 0
+                        ? Math.round((cat.allocatedPaise / budgetSummary.totalBudgetPaise) * 100)
+                        : 0;
+
+                    return (
+                      <div key={cat.id} className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-sm">{cat.name}</span>
+                            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                              {percentage}% of total
+                            </span>
+                          </div>
+                          <div className="mt-1 text-xs text-slate-500">
+                            Initial Estimate: {formatINR(cat.estimatedPaise)}
+                          </div>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="flex items-center gap-2">
+                            <div className="relative">
+                              <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-500">
+                                ₹
+                              </span>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1000"
+                                value={editAmountRupees}
+                                onChange={(e) => setEditAmountRupees(parseInt(e.target.value, 10) || 0)}
+                                className="w-36 rounded-lg border border-orange-400 pl-6 pr-2 py-1.5 text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                              />
+                            </div>
+                            <button
+                              onClick={() => handleSaveCategory(cat.id)}
+                              disabled={savingCategory}
+                              className="rounded-lg bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-500 disabled:opacity-50"
+                            >
+                              {savingCategory ? '...' : 'Save'}
+                            </button>
+                            <button
+                              onClick={() => setEditingCategoryId(null)}
+                              className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4">
+                            <span className="text-base font-extrabold text-slate-900">
+                              {formatINR(cat.allocatedPaise)}
+                            </span>
+                            <button
+                              onClick={() => startEditCategory(cat.id, cat.allocatedPaise)}
+                              className="rounded-lg border border-amber-300 bg-amber-50/50 px-2.5 py-1 text-xs font-bold text-amber-900 hover:bg-amber-100 transition-colors"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
 
-          {/* Next Recommended Actions */}
-          <div className="rounded-3xl border border-amber-300/80 bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-sm font-bold text-amber-900 mb-2">
-              <span>💡</span>
-              <span>Next Recommended Action</span>
+            {/* Right Column: Tasks Checklist & Next Actions (5 cols) */}
+            <div className="lg:col-span-5 space-y-8">
+              {/* Preparation Tasks */}
+              <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4 border-b border-amber-100 pb-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Preparation Checklist</h3>
+                    <p className="text-xs text-slate-500">
+                      {completedTasks} of {tasks.length} tasks completed
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-bold text-orange-800">
+                    {taskPercent}% Done
+                  </span>
+                </div>
+
+                {/* Task list */}
+                <div className="space-y-3">
+                  {tasks.map((task) => {
+                    const isDone = task.status === 'DONE';
+                    const isUpdating = updatingTaskId === task.id;
+
+                    return (
+                      <div
+                        key={task.id}
+                        className={`flex items-start gap-3 rounded-2xl border p-3.5 transition-all ${isDone
+                            ? 'border-emerald-200 bg-emerald-50/30'
+                            : 'border-slate-200 bg-white hover:border-amber-300'
+                          }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isDone}
+                          disabled={isUpdating}
+                          onChange={() => handleToggleTask(task.id, task.status)}
+                          className="mt-1 h-5 w-5 rounded border-slate-300 text-orange-600 focus:ring-orange-500 cursor-pointer disabled:opacity-50"
+                        />
+
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`text-sm font-bold ${isDone ? 'line-through text-slate-400' : 'text-slate-900'
+                                }`}
+                            >
+                              {task.title}
+                            </span>
+                          </div>
+
+                          {task.description && (
+                            <p className="mt-1 text-xs text-slate-500 line-clamp-2">{task.description}</p>
+                          )}
+
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                              {task.category}
+                            </span>
+                            <span
+                              className={`rounded px-2 py-0.5 text-[10px] font-bold ${task.priority === 'CRITICAL'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : task.priority === 'HIGH'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-100 text-slate-700'
+                                }`}
+                            >
+                              {task.priority}
+                            </span>
+                            {task.dueDate && (
+                              <span className="text-[11px] text-slate-400">
+                                Due {formatDate(task.dueDate, { format: 'short' })}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Next Recommended Actions */}
+              <div className="rounded-3xl border border-amber-300/80 bg-gradient-to-br from-amber-50 to-orange-50/40 p-6 shadow-sm">
+                <div className="flex items-center gap-2 text-sm font-bold text-amber-900 mb-2">
+                  <span>💡</span>
+                  <span>Next Recommended Action</span>
+                </div>
+                <h4 className="text-base font-extrabold text-slate-900">
+                  {completedTasks === 0
+                    ? 'Align on Family Expectations & Auspicious Dates'
+                    : completedTasks < tasks.length
+                      ? 'Review Venue Policies & Plate Count Details'
+                      : 'All Initial Tasks Completed! Ready for Phase 3.'}
+                </h4>
+                <p className="mt-2 text-xs text-slate-600 leading-relaxed">
+                  In Phase 3, Google Gemini AI will analyze your event details to generate a comprehensive
+                  multi-day ceremony schedule, custom themes, and vendor quotation comparisons.
+                </p>
+              </div>
             </div>
-            <h4 className="text-base font-extrabold text-slate-900">
-              {completedTasks === 0
-                ? 'Align on Family Expectations & Auspicious Dates'
-                : completedTasks < tasks.length
-                ? 'Review Venue Policies & Plate Count Details'
-                : 'All Initial Tasks Completed! Ready for Phase 3.'}
-            </h4>
-            <p className="mt-2 text-xs text-slate-600 leading-relaxed">
-              In Phase 3, Google Gemini AI will analyze your event details to generate a comprehensive
-              multi-day ceremony schedule, custom themes, and vendor quotation comparisons.
-            </p>
           </div>
-        </div>
-      </div>
-    </>
-  )}
-</div>
+        </>
+      )}
+    </div>
   );
 }
