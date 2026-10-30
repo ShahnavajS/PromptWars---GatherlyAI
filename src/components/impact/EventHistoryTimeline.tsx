@@ -67,7 +67,7 @@ export default function EventHistoryTimeline({ eventId }: { eventId: string }) {
     if (actionType.includes('GUEST')) return 'bg-blue-100 text-blue-800 border-blue-200';
     if (actionType.includes('DATE')) return 'bg-purple-100 text-purple-800 border-purple-200';
     if (actionType.includes('BUDGET')) return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-    if (actionType.includes('CREATED')) return 'bg-orange-100 text-orange-800 border-orange-200';
+    if (actionType.includes('CREATED')) return 'bg-[#e8efe5] text-[#285942] border-[#d5e1d3]';
     return 'bg-slate-100 text-slate-800 border-slate-200';
   };
 
@@ -100,7 +100,7 @@ export default function EventHistoryTimeline({ eventId }: { eventId: string }) {
         </h3>
         <button
           onClick={fetchHistory}
-          className="text-xs font-semibold text-orange-600 hover:text-orange-700"
+          className="text-xs font-semibold text-[#285942] hover:text-[#285942]"
         >
           ↻ Refresh Log
         </button>
@@ -121,13 +121,13 @@ export default function EventHistoryTimeline({ eventId }: { eventId: string }) {
           return (
             <div key={item.id} className="relative pl-6">
               {/* Dot */}
-              <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white bg-orange-500 shadow-sm" />
+              <div className="absolute -left-1.5 top-1.5 h-3 w-3 rounded-full border-2 border-white bg-[#1e4734] shadow-sm" />
 
               <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-4 transition-all hover:bg-slate-50">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                   <div className="flex items-center gap-2">
                     <span
-                      className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold ${getActionBadgeColor(
+                      className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${getActionBadgeColor(
                         item.actionType
                       )}`}
                     >
@@ -158,7 +158,7 @@ export default function EventHistoryTimeline({ eventId }: { eventId: string }) {
                 <div className="mt-3 flex items-center gap-3">
                   <button
                     onClick={() => toggleExpand(item.id)}
-                    className="text-xs font-bold text-orange-600 hover:text-orange-800 flex items-center gap-1"
+                    className="text-xs font-bold text-[#285942] hover:text-[#285942] flex items-center gap-1"
                   >
                     <span>{isExpanded ? 'Hide Technical Details' : 'View Snapshot Values'}</span>
                     <span>{isExpanded ? '▲' : '▼'}</span>
@@ -170,7 +170,7 @@ export default function EventHistoryTimeline({ eventId }: { eventId: string }) {
                     {item.previousValuesJson && (
                       <div>
                         <span className="font-bold text-slate-500">Previous Values:</span>
-                        <pre className="mt-1 rounded bg-slate-900 p-2 text-amber-300 overflow-x-auto text-[11px]">
+                        <pre className="mt-1 rounded bg-slate-900 p-2 text-amber-300 overflow-x-auto text-xs">
                           {JSON.stringify(JSON.parse(item.previousValuesJson), null, 2)}
                         </pre>
                       </div>
@@ -178,7 +178,7 @@ export default function EventHistoryTimeline({ eventId }: { eventId: string }) {
                     {item.newValuesJson && (
                       <div>
                         <span className="font-bold text-slate-500">New Values:</span>
-                        <pre className="mt-1 rounded bg-slate-900 p-2 text-emerald-300 overflow-x-auto text-[11px]">
+                        <pre className="mt-1 rounded bg-slate-900 p-2 text-emerald-300 overflow-x-auto text-xs">
                           {JSON.stringify(JSON.parse(item.newValuesJson), null, 2)}
                         </pre>
                       </div>

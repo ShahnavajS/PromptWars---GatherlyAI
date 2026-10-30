@@ -39,6 +39,8 @@ export default function PlanGeneratorView({
   // Selection states for review
   const [selectedCategories, setSelectedCategories] = useState<Record<string, boolean>>({});
   const [selectedTasks, setSelectedTasks] = useState<Record<string, boolean>>({});
+  const [selectedAgenda, setSelectedAgenda] = useState<Record<number, boolean>>({});
+  const [selectedVendors, setSelectedVendors] = useState<Record<number, boolean>>({});
 
   // Check for existing pending suggestion on mount
   useEffect(() => {
@@ -51,6 +53,7 @@ export default function PlanGeneratorView({
           setSuggestionId(data.suggestion.id);
           setPlan(data.suggestion.plan);
           setModelUsed(data.suggestion.modelUsed);
+          setIsFallback(data.suggestion.modelUsed === 'deterministic-starter-template');
           setStatus(data.suggestion.status);
 
           // Initialize selections
@@ -65,6 +68,8 @@ export default function PlanGeneratorView({
             taskMap[t.id] = true;
           });
           setSelectedTasks(taskMap);
+          setSelectedAgenda(Object.fromEntries(data.suggestion.plan.agendaBlocks.map((_: unknown, index: number) => [index, true])));
+          setSelectedVendors(Object.fromEntries(data.suggestion.plan.vendorRequirements.map((_: unknown, index: number) => [index, true])));
         }
       })
       .catch(() => {});
@@ -108,6 +113,8 @@ export default function PlanGeneratorView({
           taskMap[t.id] = true;
         });
         setSelectedTasks(taskMap);
+        setSelectedAgenda(Object.fromEntries(data.plan.agendaBlocks.map((_: unknown, index: number) => [index, true])));
+        setSelectedVendors(Object.fromEntries(data.plan.vendorRequirements.map((_: unknown, index: number) => [index, true])));
       } else {
         setError(data.error || 'Failed to generate plan.');
       }
@@ -132,6 +139,10 @@ export default function PlanGeneratorView({
       const selectedTaskIds = Object.entries(selectedTasks)
         .filter(([, selected]) => selected)
         .map(([id]) => id);
+      const selectedAgendaIndices = Object.entries(selectedAgenda)
+        .filter(([, selected]) => selected).map(([index]) => Number(index));
+      const selectedVendorIndices = Object.entries(selectedVendors)
+        .filter(([, selected]) => selected).map(([index]) => Number(index));
 
       const res = await fetch(`/api/ai/plan/${suggestionId}/review?eventId=${eventId}`, {
         method: 'POST',
@@ -140,6 +151,8 @@ export default function PlanGeneratorView({
           action,
           selectedCategoryNames,
           selectedTaskIds,
+          selectedAgendaIndices,
+          selectedVendorIndices,
         }),
       });
 
@@ -149,9 +162,9 @@ export default function PlanGeneratorView({
           setStatus('REJECTED');
           setSuccessMessage('AI suggestions dismissed. Your workspace remains unchanged.');
         } else {
-          setStatus('ACCEPTED');
+          setStatus(resData.data.status);
           setSuccessMessage(
-            `✓ Successfully applied ${resData.data.appliedCategoriesCount} budget categories and ${resData.data.appliedTasksCount} tasks to your event workspace!`
+            `Applied ${resData.data.appliedCategoriesCount} budget categories, ${resData.data.appliedTasksCount} tasks, ${resData.data.appliedAgendaCount} timeline items, and ${resData.data.appliedVendorCount} vendor requirements.`
           );
           onPlanApplied();
         }
@@ -173,61 +186,59 @@ export default function PlanGeneratorView({
   return (
     <div className="space-y-8">
       {/* AI Planner Intake Card */}
-      <div className="rounded-3xl border border-amber-200/80 bg-white p-6 sm:p-8 shadow-sm">
+      <div className="surface-card p-6 sm:p-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-amber-100 pb-4 mb-6">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800 mb-2">
-              <span>✨</span>
-              <span>GenAI Event Planning Co-Pilot</span>
+            <div className="inline-flex items-center gap-2 rounded-full bg-[#e8efe5] px-3 py-1 text-xs font-bold text-[#285942] mb-2">
+              <span>Ideas, shaped around you</span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-              Personalized Event Plan Generator
+            <h2 className="font-editorial text-3xl text-[#263b34] sm:text-4xl">
+              Imagine what it could be.
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Provide your cultural, dietary, theme, and guest experience preferences. Google Gemini will
-              generate a structured, reviewable plan tailored to your budget ceiling.
+              Tell us about the feeling, traditions, food, and guest experience you want. We&apos;ll suggest a plan for you to review.
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-start rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-1.5 text-xs font-semibold text-slate-700">
-            <span>Model:</span>
-            <span className="font-mono text-orange-800 font-bold">
-              {modelUsed || 'gemini-2.5-flash'}
-            </span>
+            <span>{!modelUsed ? 'No ideas generated yet' : isFallback ? 'Starter ideas' : 'AI suggestions'}</span>
           </div>
         </div>
 
         {error && (
-          <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <div role="alert" className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
             <span className="font-bold">Error:</span> {error}
           </div>
         )}
 
         {successMessage && (
-          <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+          <div role="status" className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
             {successMessage}
           </div>
         )}
+        {(generating || applying) && <p role="status" className="text-sm text-slate-600">
+          {generating ? 'Generating your plan…' : 'Applying selected suggestions…'}
+        </p>}
 
         {/* Form area */}
         <div className="space-y-4">
           <div>
             <label htmlFor="additionalContext" className="block text-sm font-bold text-slate-800 mb-1.5">
-              Event Preferences & Planning Instructions
+              What would make this event feel like yours?
             </label>
             <textarea
               id="additionalContext"
               rows={4}
-              placeholder="e.g. Plan a colorful Gujarati wedding for 250 guests. We need pure vegetarian and Jain catering with live food stations, a vibrant modern theme with marigold decor, a comfortable schedule for elderly grandparents, and photography with drone coverage."
+              placeholder="Tell us about the atmosphere, food, traditions, access needs, or any small detail that matters to you."
               value={additionalContext}
               onChange={(e) => setAdditionalContext(e.target.value)}
-              className="w-full rounded-2xl border border-slate-300 p-4 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="w-full rounded-2xl border border-slate-300 p-4 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#285942]"
             />
           </div>
 
           {/* Quick preset buttons */}
           <div>
-            <span className="text-xs font-semibold text-slate-500 mr-2">Quick Presets:</span>
+            <span className="text-xs font-semibold text-slate-500 mr-2">Starting points:</span>
             <div className="inline-flex flex-wrap gap-2 mt-1">
               <button
                 type="button"
@@ -238,7 +249,7 @@ export default function PlanGeneratorView({
                 }
                 className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
               >
-                💍 Gujarati Wedding
+                Gujarati wedding
               </button>
               <button
                 type="button"
@@ -249,7 +260,7 @@ export default function PlanGeneratorView({
                 }
                 className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
               >
-                🎂 Milestone Birthday
+                Milestone birthday
               </button>
               <button
                 type="button"
@@ -260,21 +271,21 @@ export default function PlanGeneratorView({
                 }
                 className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 hover:bg-amber-100"
               >
-                🤝 Community Mela
+                Community festival
               </button>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-3">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-3">
             <span className="text-xs text-slate-500">
               {eventTitle} ({eventType}) • {venueCity} • {targetGuestCount} guests • Ceiling: {formatCompactINR(totalBudgetPaise)}
             </span>
             <button
               onClick={handleGenerate}
               disabled={generating}
-              className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white shadow-md shadow-orange-600/20 hover:bg-orange-500 active:bg-orange-700 transition-all disabled:opacity-60"
+              className="button-primary"
             >
-              <span>{generating ? '✨ Generating Structured Plan...' : '✨ Generate Plan with Gemini'}</span>
+              <span>{generating ? 'Making suggestions…' : 'Create my ideas'}</span>
             </button>
           </div>
         </div>
@@ -286,30 +297,30 @@ export default function PlanGeneratorView({
           {/* Staging Notice Banner */}
           <div
             className={`rounded-2xl border p-5 ${
-              status === 'ACCEPTED'
+              status === 'ACCEPTED' || status === 'PARTIALLY_ACCEPTED'
                 ? 'border-emerald-300 bg-emerald-50 text-emerald-900'
                 : status === 'REJECTED'
                 ? 'border-slate-300 bg-slate-50 text-slate-800'
-                : 'border-orange-300 bg-gradient-to-r from-orange-50 to-amber-50 text-orange-950'
+                : 'border-[#b8cbb6] bg-gradient-to-r from-[#e8efe5] to-amber-50 text-[#263b34]'
             }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{status === 'ACCEPTED' ? '✓' : '📋'}</span>
+                <span className="text-2xl">{status === 'ACCEPTED' || status === 'PARTIALLY_ACCEPTED' ? '✓' : '📋'}</span>
                 <div>
                   <h4 className="font-extrabold text-sm sm:text-base">
-                    {status === 'ACCEPTED'
-                      ? 'Plan Adopted & Persisted'
+                    {status === 'ACCEPTED' || status === 'PARTIALLY_ACCEPTED'
+                      ? 'Ideas added to your plan'
                       : status === 'REJECTED'
-                      ? 'Plan Dismissed'
-                      : 'Reviewable Plan Proposal (Pending User Review)'}
+                      ? 'Ideas dismissed'
+                      : 'Your ideas are ready to review'}
                   </h4>
                   <p className="text-xs mt-0.5 opacity-90">
-                    {status === 'ACCEPTED'
-                      ? 'The selected budget categories and preparation tasks have been adopted into your event workspace.'
+                    {status === 'ACCEPTED' || status === 'PARTIALLY_ACCEPTED'
+                      ? 'Your selected budget, task, timeline, and vendor ideas are now part of this plan.'
                       : isFallback
-                      ? 'Generated using the deterministic starter blueprint engine (GEMINI_API_KEY unconfigured). Review and apply.'
-                      : 'Generated with Google Gemini. Review the concept, budget allocations, and tasks below before accepting.'}
+                      ? 'These are starter ideas. Review each one before adding it to your plan.'
+                      : 'These suggestions were generated with Gemini. Review each one before adding it to your plan.'}
                   </p>
                 </div>
               </div>
@@ -319,16 +330,16 @@ export default function PlanGeneratorView({
                   <button
                     onClick={() => handleApplyReview('ACCEPT_ALL')}
                     disabled={applying}
-                    className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white shadow hover:bg-orange-500 disabled:opacity-50"
+                    className="rounded-xl bg-[#285942] px-4 py-2 text-xs font-bold text-white shadow hover:bg-[#1e4734] disabled:opacity-50"
                   >
-                    Accept All
+                    Add all
                   </button>
                   <button
                     onClick={() => handleApplyReview('ACCEPT_SELECTED')}
                     disabled={applying}
-                    className="rounded-xl border border-orange-300 bg-white px-3 py-2 text-xs font-bold text-orange-800 hover:bg-orange-50 disabled:opacity-50"
+                    className="rounded-xl border border-[#b8cbb6] bg-white px-3 py-2 text-xs font-bold text-[#285942] hover:bg-[#e8efe5] disabled:opacity-50"
                   >
-                    Accept Selected
+                    Add selected
                   </button>
                   <button
                     onClick={() => handleApplyReview('REJECT_ALL')}
@@ -343,9 +354,9 @@ export default function PlanGeneratorView({
           </div>
 
           {/* Section A: Concept & Atmosphere */}
-          <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+          <div className="surface-card p-6">
             <div className="border-b border-amber-100 pb-3 mb-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-orange-600">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#285942]">
                 Plan Concept & Theme
               </span>
               <h3 className="text-xl font-bold text-slate-900 mt-1">{plan.concept.planTitle}</h3>
@@ -357,8 +368,8 @@ export default function PlanGeneratorView({
                 <span className="font-bold text-amber-900 block mb-1">Creative Theme:</span>
                 <p className="text-slate-700">{plan.concept.theme}</p>
               </div>
-              <div className="rounded-2xl bg-orange-50/60 p-4 border border-orange-200/60">
-                <span className="font-bold text-orange-900 block mb-1">Atmosphere & Style:</span>
+              <div className="rounded-2xl bg-[#e8efe5]/60 p-4 border border-[#d5e1d3]/60">
+                <span className="font-bold text-[#263b34] block mb-1">Atmosphere & Style:</span>
                 <p className="text-slate-700">{plan.concept.atmosphere}</p>
               </div>
             </div>
@@ -378,7 +389,7 @@ export default function PlanGeneratorView({
           </div>
 
           {/* Section B: Personalization & Inclusions */}
-          <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+          <div className="surface-card p-6">
             <h3 className="text-lg font-bold text-slate-900 mb-4 border-b border-amber-100 pb-2">
               Personalization & Cultural Intelligence
             </h3>
@@ -425,15 +436,15 @@ export default function PlanGeneratorView({
           </div>
 
           {/* Section C: Proposed Budget Allocations */}
-          <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+          <div className="surface-card p-6">
             <div className="flex items-center justify-between border-b border-amber-100 pb-3 mb-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Proposed Budget Allocations</h3>
                 <p className="text-xs text-slate-500">
-                  Select categories to adopt into your live budget. 10% contingency reserve preserved.
+                  Select categories to adopt into your live budget. Partial selection keeps the current contingency reserve.
                 </p>
               </div>
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-800">
+              <span className="rounded-full bg-[#e8efe5] px-3 py-1 text-xs font-bold text-[#285942]">
                 Pool: {formatCompactINR(plan.budgetPlan.availableAllocationPaise)}
               </span>
             </div>
@@ -446,15 +457,16 @@ export default function PlanGeneratorView({
                   <div key={cat.id} className="py-3 flex items-start gap-3">
                     <input
                       type="checkbox"
+                      aria-label={`Adopt ${cat.name} budget category`}
                       checked={isChecked}
-                      disabled={status === 'ACCEPTED'}
+                      disabled={status !== 'PENDING_REVIEW'}
                       onChange={(e) =>
                         setSelectedCategories((prev) => ({
                           ...prev,
                           [cat.name]: e.target.checked,
                         }))
                       }
-                      className="mt-1 h-5 w-5 rounded border-slate-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                      className="mt-1 h-5 w-5 rounded border-slate-300 text-[#285942] focus:ring-[#285942] cursor-pointer"
                     />
 
                     <div className="flex-1">
@@ -464,7 +476,7 @@ export default function PlanGeneratorView({
                           <span className="text-xs font-bold text-slate-500">
                             {cat.percentage}% of available pool
                           </span>
-                          <span className="text-sm font-extrabold text-orange-900">
+                          <span className="text-sm font-extrabold text-[#263b34]">
                             {formatINR(cat.allocatedPaise)}
                           </span>
                         </div>
@@ -478,7 +490,7 @@ export default function PlanGeneratorView({
           </div>
 
           {/* Section D: Proposed Preparation Tasks */}
-          <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+          <div className="surface-card p-6">
             <div className="flex items-center justify-between border-b border-amber-100 pb-3 mb-4">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">Proposed Preparation Tasks</h3>
@@ -502,28 +514,29 @@ export default function PlanGeneratorView({
                   >
                     <input
                       type="checkbox"
+                      aria-label={`Adopt task: ${task.title}`}
                       checked={isChecked}
-                      disabled={status === 'ACCEPTED'}
+                      disabled={status !== 'PENDING_REVIEW'}
                       onChange={(e) =>
                         setSelectedTasks((prev) => ({
                           ...prev,
                           [task.id]: e.target.checked,
                         }))
                       }
-                      className="mt-1 h-5 w-5 rounded border-slate-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                      className="mt-1 h-5 w-5 rounded border-slate-300 text-[#285942] focus:ring-[#285942] cursor-pointer"
                     />
 
                     <div className="flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className="text-sm font-bold text-slate-900">{task.title}</span>
-                        <span className="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600">
+                        <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">
                           {task.category}
                         </span>
                       </div>
                       {task.description && (
                         <p className="text-xs text-slate-500 mt-1">{task.description}</p>
                       )}
-                      <div className="mt-2 flex items-center gap-3 text-[11px] text-slate-400">
+                      <div className="mt-2 flex items-center gap-3 text-xs text-slate-400">
                         <span>Target: {task.computedDueDateIso}</span>
                         {task.rationale && <span>• {task.rationale}</span>}
                       </div>
@@ -535,8 +548,44 @@ export default function PlanGeneratorView({
           </div>
 
           {/* Final Action Bar */}
+          {plan.agendaBlocks.length > 0 && (
+            <section className="surface-card p-6" aria-labelledby="agenda-heading">
+              <h3 id="agenda-heading" className="mb-4 text-lg font-bold text-slate-900">Proposed Timeline</h3>
+              <div className="space-y-3">
+                {plan.agendaBlocks.map((block, index) => (
+                  <label key={`${block.dayNumber}-${block.title}-${index}`} className="flex gap-3 rounded-xl border border-slate-200 p-3">
+                    <input type="checkbox" checked={selectedAgenda[index] ?? true} disabled={status !== 'PENDING_REVIEW'}
+                      onChange={(event) => setSelectedAgenda((current) => ({ ...current, [index]: event.target.checked }))}
+                      className="mt-1 h-5 w-5" />
+                    <span><strong className="block text-sm">Day {block.dayNumber}: {block.title}</strong>
+                      <span className="block text-xs text-slate-600">{block.timeWindow} · {block.description}</span></span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {plan.vendorRequirements.length > 0 && (
+            <section className="surface-card p-6" aria-labelledby="vendors-heading">
+              <h3 id="vendors-heading" className="mb-4 text-lg font-bold text-slate-900">Proposed Vendor Checklist</h3>
+              <div className="space-y-3">
+                {plan.vendorRequirements.map((vendor, index) => (
+                  <label key={`${vendor.title}-${index}`} className="flex gap-3 rounded-xl border border-slate-200 p-3">
+                    <input type="checkbox" checked={selectedVendors[index] ?? true} disabled={status !== 'PENDING_REVIEW'}
+                      onChange={(event) => setSelectedVendors((current) => ({ ...current, [index]: event.target.checked }))}
+                      className="mt-1 h-5 w-5" />
+                    <span><strong className="block text-sm">{vendor.title} · {vendor.category}</strong>
+                      <span className="block text-xs text-slate-600">{vendor.specifications}</span>
+                      {vendor.comparisonCriteria.length > 0 && <span className="block text-xs text-slate-500">Compare: {vendor.comparisonCriteria.join('; ')}</span>}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </section>
+          )}
+
           {status === 'PENDING_REVIEW' && (
-            <div className="sticky bottom-4 z-30 flex items-center justify-between rounded-2xl border border-orange-300 bg-white/95 p-4 shadow-xl backdrop-blur-md">
+            <div className="sticky bottom-4 z-30 flex items-center justify-between rounded-2xl border border-[#b8cbb6] bg-white/95 p-4 shadow-xl backdrop-blur-md">
               <div className="text-xs text-slate-600">
                 <span className="font-bold text-slate-900">Ready to adopt?</span> Selected budget categories and
                 tasks will be updated in your live dashboard.
@@ -552,7 +601,7 @@ export default function PlanGeneratorView({
                 <button
                   onClick={() => handleApplyReview('ACCEPT_SELECTED')}
                   disabled={applying}
-                  className="rounded-xl bg-orange-600 px-6 py-2.5 text-xs font-bold text-white shadow hover:bg-orange-500 disabled:opacity-50"
+                  className="rounded-xl bg-[#285942] px-6 py-2.5 text-xs font-bold text-white shadow hover:bg-[#1e4734] disabled:opacity-50"
                 >
                   {applying ? 'Applying...' : '✓ Adopt Selected Suggestions'}
                 </button>

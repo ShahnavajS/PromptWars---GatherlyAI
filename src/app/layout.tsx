@@ -1,75 +1,37 @@
 import type { Metadata, Viewport } from 'next';
-import './globals.css';
 import Link from 'next/link';
+import SessionNav from '@/components/auth/SessionNav';
+import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Gatherly AI — Plan smarter. Spend wisely. Bring everyone together.',
-  description:
-    'GenAI-powered event planning and coordination platform. Indian-first with deterministic budget intelligence and multi-day ceremony planning.',
+  title: 'Gatherly | Make more room for the moments',
+  description: 'A thoughtful planning space for weddings, birthdays, and community gatherings. Shape your ideas, budget, timeline, and vendor checklist in one place.',
 };
+export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#f8f5ee' };
 
-export const viewport: Viewport = {
-  width: 'device-width',
-  initialScale: 1,
-  themeColor: '#ea580c',
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="h-full">
-      <body className="flex min-h-full flex-col bg-[#fffdfa] text-slate-800 antialiased selection:bg-orange-100 selection:text-orange-900">
-        <header className="sticky top-0 z-40 border-b border-amber-200/60 bg-[#fffdfa]/90 backdrop-blur-md">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
-            <div className="flex items-center gap-3">
-              <Link href="/" className="group flex items-center gap-2.5">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-500 via-orange-500 to-rose-500 text-white shadow-sm shadow-orange-500/20 transition-transform group-hover:scale-105">
-                  <span className="text-xl font-bold">✨</span>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-extrabold tracking-tight text-slate-900">
-                      Gatherly<span className="text-orange-600">.ai</span>
-                    </span>
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-                      Phase 2 Core
-                    </span>
-                  </div>
-                  <p className="hidden text-xs text-slate-500 sm:block">
-                    Plan smarter. Spend wisely. Bring everyone together.
-                  </p>
-                </div>
-              </Link>
-            </div>
-
-            <nav className="flex items-center gap-3 sm:gap-4">
-              <Link
-                href="/"
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-amber-100/60 hover:text-slate-900 transition-colors"
-              >
-                My Events
-              </Link>
-              <Link
-                href="/events/new"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-orange-500 active:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 transition-all"
-              >
-                <span>+</span> Plan New Event
-              </Link>
+    <html lang="en" data-scroll-behavior="smooth">
+      <body className="flex min-h-screen flex-col">
+        <a href="#main-content" className="sr-only rounded-lg bg-white px-4 py-3 text-sm font-bold text-[#263b34] focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100]">Skip to content</a>
+        <header className="sticky top-0 z-40 border-b border-[#e2e6da] bg-[#f8f5ee]/95 backdrop-blur-md">
+          <div className="page-wrap flex min-h-[76px] items-center justify-between gap-4 py-3">
+            <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Gatherly home">
+              <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#285942] text-[26px] leading-none text-[#f6dfac]">✳</span>
+              <span className="font-editorial text-[1.8rem] leading-none tracking-[-.07em] text-[#263b34]">gatherly<span className="text-[#9e4b35]">.</span></span>
+            </Link>
+            <nav aria-label="Main navigation" className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-3">
+              <Link href="/" className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-[#435a4e] hover:bg-[#e8efe5] sm:inline-flex">My events</Link>
+              <SessionNav />
+              <Link href="/events/new" className="button-primary whitespace-nowrap px-3.5 sm:px-5"><span aria-hidden="true">＋</span><span className="hidden sm:inline">Plan an event</span><span className="sm:hidden">New event</span></Link>
             </nav>
           </div>
         </header>
-
-        <main className="flex-1">{children}</main>
-
-        <footer className="mt-auto border-t border-amber-100 bg-[#faf7f0] py-6 text-center text-xs text-slate-500">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2">
-            <p>© 2026 Gatherly AI. Deterministic Event Planning & Coordination.</p>
-            <p className="text-slate-400">
-              India-First Architecture • Asia/Kolkata • Minor-Unit Paise Arithmetic
-            </p>
+        <main id="main-content" className="flex-1">{children}</main>
+        <footer className="mt-20 border-t border-[#e2e6da] bg-[#f1f1e8]">
+          <div className="page-wrap flex flex-col gap-4 py-8 text-sm text-[#596860] sm:flex-row sm:items-center sm:justify-between">
+            <p><span className="font-editorial text-lg text-[#263b34]">gatherly.</span> &nbsp; A little more joy in the making.</p>
+            <p>Plan thoughtfully. Make it yours.</p>
           </div>
         </footer>
       </body>

@@ -30,7 +30,7 @@ export async function PATCH(
         {
           success: false,
           error: 'Validation failed.',
-          issues: error.errors.map((e) => ({
+          issues: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,
           })),
@@ -42,7 +42,7 @@ export async function PATCH(
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Quote not found.' }, { status: 404 });
     }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
 

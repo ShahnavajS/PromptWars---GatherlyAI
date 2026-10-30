@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isIsoDate } from './date';
 
 export const VendorCategoryEnum = z.enum([
   'VENUE', 'CATERING', 'DECOR', 'PHOTOGRAPHY', 'ENTERTAINMENT',
@@ -21,10 +22,10 @@ export const UpdateVendorSchema = CreateVendorSchema.partial();
 export const CreateQuoteSchema = z.object({
   vendorId: z.string().trim().min(5),
   quoteTitle: z.string().trim().min(2).max(150),
-  quotedAmountPaise: z.number().int().min(0),
-  currency: z.string().trim().min(3).max(3).default('INR'),
-  quoteDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  validUntilDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  quotedAmountPaise: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+  currency: z.enum(['INR', 'USD', 'EUR', 'GBP']).default('INR'),
+  quoteDate: z.string().refine(isIsoDate, 'Enter a real quote date.'),
+  validUntilDate: z.string().refine(isIsoDate, 'Enter a real expiry date.').optional().nullable(),
   inclusions: z.array(z.string().trim().max(200)).default([]),
   exclusions: z.array(z.string().trim().max(200)).default([]),
   paymentTerms: z.object({
@@ -39,6 +40,8 @@ export const CreateQuoteSchema = z.object({
   categoryId: z.string().optional().nullable(), // budget category linkage
   isExtractedByAi: z.boolean().default(false),
   sourceDocumentName: z.string().trim().max(200).optional().nullable(),
+}).refine((quote) => !quote.validUntilDate || quote.validUntilDate >= quote.quoteDate, {
+  path: ['validUntilDate'], message: 'Quote expiry must be on or after its date.',
 });
 
 export const ConfirmQuoteSchema = z.object({

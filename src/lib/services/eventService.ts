@@ -1,6 +1,6 @@
 import { getDb, getRawSqlite } from '@/lib/db';
 import { events, eventBudgets, budgetCategories, eventTasks, eventActivities, eventPreferences } from '@/lib/db/schema';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, inArray, sum, count, sql } from 'drizzle-orm';
 import { CreateEventInput, UpdateTaskInput } from '@/lib/validation/events';
 import { getInitialSeedData } from '@/lib/domain/seeding';
 import { getBudgetSummary, BudgetSummary } from '@/lib/domain/budget';
@@ -119,8 +119,8 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
     });
 
     // 5. Initialize Cultural & Personalization Preferences
-    const defaultPreset = input.culturalPreset || (input.eventType === 'WEDDING' ? 'GUJARATI' : 'MODERN');
-    const defaultDiet = input.dietaryPreference || (input.eventType === 'WEDDING' ? 'PURE_VEG' : 'MIXED');
+    const defaultPreset = input.culturalPreset || (input.eventType === 'COMMUNITY' ? 'COMMUNITY' : 'MODERN');
+    const defaultDiet = input.dietaryPreference || 'MIXED';
 
     db.insert(eventPreferences)
       .values({
@@ -129,9 +129,9 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
         culturalPreset: defaultPreset,
         dietaryPreference: defaultDiet,
         ceremonyOptionsJson: JSON.stringify([]),
-        accessibilityNotes: 'Standard venue accessibility; ground floor dining preferred.',
-        decorStyle: 'Festive Traditional & Elegant Floral',
-        entertainmentStyle: 'Live folk acoustic & instrumental music',
+        accessibilityNotes: '',
+        decorStyle: '',
+        entertainmentStyle: '',
         customTraditionsJson: JSON.stringify([]),
         venueCapacityMax: null,
         createdAt: now,
@@ -244,19 +244,21 @@ export async function listEvents(userId = 'usr_demo'): Promise<EventListItem[]> 
     .orderBy(desc(events.createdAt))
     .all();
 
-  const result: EventListItem[] = [];
+  if (userEvents.length === 0) return [];
+  const ids = userEvents.map((event) => event.id);
+  const budgets = new Map(db.select().from(eventBudgets).where(inArray(eventBudgets.eventId, ids)).all()
+    .map((budget) => [budget.eventId, budget.totalBudgetPaise]));
+  const allocations = new Map(db.select({ eventId: budgetCategories.eventId, total: sum(budgetCategories.allocatedPaise) })
+    .from(budgetCategories).where(inArray(budgetCategories.eventId, ids))
+    .groupBy(budgetCategories.eventId).all().map((row) => [row.eventId, Number(row.total || 0)]));
+  const taskCounts = new Map(db.select({
+    eventId: eventTasks.eventId,
+    total: count(),
+    completed: sql<number>`sum(case when ${eventTasks.status} = 'DONE' then 1 else 0 end)`,
+  }).from(eventTasks).where(inArray(eventTasks.eventId, ids))
+    .groupBy(eventTasks.eventId).all().map((row) => [row.eventId, row]));
 
-  for (const ev of userEvents) {
-    const budgetList = db.select().from(eventBudgets).where(eq(eventBudgets.eventId, ev.id)).all();
-    const totalBudgetPaise = budgetList.length > 0 ? budgetList[0].totalBudgetPaise : 0;
-
-    const categories = db.select().from(budgetCategories).where(eq(budgetCategories.eventId, ev.id)).all();
-    const allocatedTotalPaise = categories.reduce((sum, c) => sum + c.allocatedPaise, 0);
-
-    const tasks = db.select().from(eventTasks).where(eq(eventTasks.eventId, ev.id)).all();
-    const completedTasksCount = tasks.filter((t) => t.status === 'DONE').length;
-
-    result.push({
+  return userEvents.map((ev) => ({
       id: ev.id,
       title: ev.title,
       eventType: ev.eventType,
@@ -265,15 +267,12 @@ export async function listEvents(userId = 'usr_demo'): Promise<EventListItem[]> 
       endDate: ev.endDate,
       venueCity: ev.venueCity,
       targetGuestCount: ev.targetGuestCount,
-      totalBudgetPaise,
-      allocatedTotalPaise,
-      totalTasksCount: tasks.length,
-      completedTasksCount,
+      totalBudgetPaise: budgets.get(ev.id) ?? 0,
+      allocatedTotalPaise: allocations.get(ev.id) ?? 0,
+      totalTasksCount: taskCounts.get(ev.id)?.total ?? 0,
+      completedTasksCount: taskCounts.get(ev.id)?.completed ?? 0,
       createdAt: ev.createdAt,
-    });
-  }
-
-  return result;
+    }));
 }
 
 /**

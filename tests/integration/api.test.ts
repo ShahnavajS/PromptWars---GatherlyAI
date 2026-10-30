@@ -6,7 +6,7 @@ import { PATCH as patchCategory } from '@/app/api/events/[id]/categories/[catego
 import { PATCH as patchTask } from '@/app/api/events/[id]/tasks/[taskId]/route';
 import { GET as getVendors } from '@/app/api/events/[id]/vendors/route';
 import { getRawSqlite } from '@/lib/db';
-import { createSignedSessionToken } from '@/lib/auth/session';
+import { testSession } from '../helpers/auth';
 
 describe('API Route Handlers Integration', () => {
   beforeEach(() => {
@@ -22,19 +22,16 @@ describe('API Route Handlers Integration', () => {
   describe('GET /api/events', () => {
     it('returns empty list initially and populates after creation', async () => {
       const res = await getEvents(new NextRequest('http://localhost:3000/api/events'));
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.success).toBe(true);
-      expect(Array.isArray(json.events)).toBe(true);
-      expect(json.events.length).toBe(0);
+      expect(res.status).toBe(401);
     });
   });
 
   describe('POST /api/events', () => {
     it('creates an event and returns 201 with data on valid payload', async () => {
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
       const req = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: 'Ahmedabad Sangeet & Reception',
           eventType: 'WEDDING',
@@ -55,9 +52,10 @@ describe('API Route Handlers Integration', () => {
     });
 
     it('returns 400 when title is missing or too short', async () => {
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
       const req = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: 'Hi', // Less than 3 chars
           eventType: 'WEDDING',
@@ -77,9 +75,10 @@ describe('API Route Handlers Integration', () => {
     });
 
     it('returns 400 when end date precedes start date', async () => {
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
       const req = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: 'Invalid Date Wedding',
           eventType: 'WEDDING',
@@ -97,9 +96,10 @@ describe('API Route Handlers Integration', () => {
     });
 
     it('returns 400 when budget is below minimum ₹1,000', async () => {
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
       const req = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           title: 'Low Budget Celebration',
           eventType: 'CELEBRATION',
@@ -116,7 +116,8 @@ describe('API Route Handlers Integration', () => {
 
   describe('GET /api/events/[id]', () => {
     it('returns 404 for non-existent event ID', async () => {
-      const req = new NextRequest('http://localhost:3000/api/events/evt_non_existent');
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
+      const req = new NextRequest('http://localhost:3000/api/events/evt_non_existent', { headers: { Authorization: `Bearer ${token}` } });
       const res = await getEventByIdRoute(req, {
         params: Promise.resolve({ id: 'evt_non_existent' }),
       });
@@ -130,9 +131,10 @@ describe('API Route Handlers Integration', () => {
 
   describe('PATCH /api/events/[id]/categories/[categoryId]', () => {
     it('returns 400 for negative allocation paise', async () => {
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
       const req = new NextRequest('http://localhost:3000/api/events/evt_1/categories/cat_1', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ allocatedPaise: -500 }),
       });
 
@@ -148,9 +150,10 @@ describe('API Route Handlers Integration', () => {
 
   describe('PATCH /api/events/[id]/tasks/[taskId]', () => {
     it('returns 400 for invalid task status enum', async () => {
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
       const req = new NextRequest('http://localhost:3000/api/events/evt_1/tasks/tsk_1', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ status: 'INVALID_STATUS' }),
       });
 
@@ -167,7 +170,7 @@ describe('API Route Handlers Integration', () => {
   describe('Cross-user event isolation', () => {
     it('returns 404 when user B tries to GET an event owned by user A', async () => {
       // User A creates an event
-      const userAToken = createSignedSessionToken({ id: 'usr_alice', name: 'Alice', email: 'alice@example.com' });
+      const userAToken = testSession({ id: 'usr_alice', name: 'Alice', email: 'alice@example.com' });
       const createReq = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userAToken}` },
@@ -186,7 +189,7 @@ describe('API Route Handlers Integration', () => {
       const eventId = created.data.event.id;
 
       // User B attempts to access user A's event
-      const userBToken = createSignedSessionToken({ id: 'usr_bob', name: 'Bob', email: 'bob@example.com' });
+      const userBToken = testSession({ id: 'usr_bob', name: 'Bob', email: 'bob@example.com' });
       const getReq = new NextRequest(`http://localhost:3000/api/events/${eventId}`, {
         headers: { Authorization: `Bearer ${userBToken}` },
       });
@@ -213,7 +216,7 @@ describe('API Route Handlers Integration', () => {
 
     it('returns 404 for vendor GET with wrong user session', async () => {
       // User A creates an event
-      const userAToken = createSignedSessionToken({ id: 'usr_alice2', name: 'Alice2', email: 'alice2@example.com' });
+      const userAToken = testSession({ id: 'usr_alice2', name: 'Alice2', email: 'alice2@example.com' });
       const createReq = new NextRequest('http://localhost:3000/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userAToken}` },
@@ -231,7 +234,7 @@ describe('API Route Handlers Integration', () => {
       const eventId = created.data.event.id;
 
       // User B attempts to list vendors on user A's event
-      const userBToken = createSignedSessionToken({ id: 'usr_bob2', name: 'Bob2', email: 'bob2@example.com' });
+      const userBToken = testSession({ id: 'usr_bob2', name: 'Bob2', email: 'bob2@example.com' });
       const vendorReq = new NextRequest(`http://localhost:3000/api/events/${eventId}/vendors`, {
         headers: { Authorization: `Bearer ${userBToken}` },
       });

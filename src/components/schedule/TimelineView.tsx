@@ -72,46 +72,50 @@ interface ScheduleFormFieldsProps {
 
 function ScheduleFormFields({ form, setForm, onSubmit, onCancel, saving }: ScheduleFormFieldsProps) {
   return (
-    <div className="rounded-2xl border border-orange-200 bg-orange-50/40 p-5 space-y-4">
+    <div className="rounded-2xl border border-[#d5e1d3] bg-[#e8efe5]/40 p-5 space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Title *</label>
           <input
+            aria-label="Activity title"
             type="text"
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             placeholder="Activity title"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Date *</label>
           <input
+            aria-label="Activity date"
             type="date"
             value={form.date}
             onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Day Number</label>
           <input
+            aria-label="Day number"
             type="number"
             min={1}
             max={30}
             value={form.dayNumber}
             onChange={(e) => setForm((f) => ({ ...f, dayNumber: parseInt(e.target.value, 10) || 1 }))}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-700 mb-1">Location</label>
           <input
+            aria-label="Activity location"
             type="text"
             value={form.location}
             onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
             placeholder="Venue / location"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
         <div className="flex items-center gap-3 pt-2">
@@ -120,7 +124,7 @@ function ScheduleFormFields({ form, setForm, onSubmit, onCancel, saving }: Sched
             type="checkbox"
             checked={form.isAllDay}
             onChange={(e) => setForm((f) => ({ ...f, isAllDay: e.target.checked }))}
-            className="h-4 w-4 rounded text-orange-600"
+            className="h-4 w-4 rounded text-[#285942]"
           />
           <label htmlFor="isAllDay" className="text-sm font-semibold text-slate-700">All Day</label>
         </div>
@@ -129,19 +133,21 @@ function ScheduleFormFields({ form, setForm, onSubmit, onCancel, saving }: Sched
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">Start Time</label>
               <input
+                aria-label="Start time"
                 type="time"
                 value={form.startTime}
                 onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">End Time</label>
               <input
+                aria-label="End time"
                 type="time"
                 value={form.endTime}
                 onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
           </>
@@ -149,11 +155,12 @@ function ScheduleFormFields({ form, setForm, onSubmit, onCancel, saving }: Sched
         <div className="sm:col-span-2">
           <label className="block text-xs font-bold text-slate-700 mb-1">Description</label>
           <textarea
+            aria-label="Activity description"
             rows={2}
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             placeholder="Optional notes about this activity"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
       </div>
@@ -161,7 +168,7 @@ function ScheduleFormFields({ form, setForm, onSubmit, onCancel, saving }: Sched
         <button
           onClick={onSubmit}
           disabled={saving}
-          className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-500 disabled:opacity-50"
+          className="rounded-lg bg-[#285942] px-4 py-2 text-sm font-bold text-white hover:bg-[#1e4734] disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Activity'}
         </button>
@@ -393,7 +400,7 @@ export default function TimelineView({ eventId }: TimelineViewProps) {
         </div>
       )}
 
-      <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+      <div className="surface-card p-6">
         <div className="flex items-center justify-between mb-5 border-b border-amber-100 pb-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Multi-Day Timeline</h2>
@@ -405,7 +412,7 @@ export default function TimelineView({ eventId }: TimelineViewProps) {
               setEditingId(null);
               resetForm();
             }}
-            className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-500"
+            className="rounded-xl bg-[#285942] px-4 py-2 text-sm font-bold text-white hover:bg-[#1e4734]"
           >
             + Add Activity
           </button>
@@ -465,7 +472,7 @@ export default function TimelineView({ eventId }: TimelineViewProps) {
               .map(([date, dayItems]) => (
                 <div key={date}>
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="rounded-xl bg-orange-600 px-3 py-1.5 text-xs font-bold text-white">
+                    <div className="rounded-xl bg-[#285942] px-3 py-1.5 text-xs font-bold text-white">
                       {formatDate(date)}
                     </div>
                     <div className="flex-1 h-px bg-amber-200" />
@@ -497,16 +504,16 @@ export default function TimelineView({ eventId }: TimelineViewProps) {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-slate-900 text-sm">{item.title}</span>
-                                <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${STATUS_COLORS[item.status] ?? 'bg-slate-100 text-slate-700'}`}>
+                                <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${STATUS_COLORS[item.status] ?? 'bg-slate-100 text-slate-700'}`}>
                                   {item.status}
                                 </span>
                                 {conflictIds.has(item.id) && (
-                                  <span className="rounded-md bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+                                  <span className="rounded-md bg-amber-200 px-2 py-0.5 text-xs font-bold text-amber-900">
                                     ⚠️ Conflict
                                   </span>
                                 )}
                                 {item.isAllDay && (
-                                  <span className="rounded-md bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-800">
+                                  <span className="rounded-md bg-[#e8efe5] px-2 py-0.5 text-xs font-semibold text-[#285942]">
                                     All Day
                                   </span>
                                 )}

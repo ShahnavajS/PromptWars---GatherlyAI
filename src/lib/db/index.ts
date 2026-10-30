@@ -8,10 +8,18 @@ let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _sqlite: InstanceType<typeof Database> | null = null;
 
 export function getDatabasePath(): string {
-  if (process.env.DATABASE_URL) {
-    return process.env.DATABASE_URL;
+  const configured = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'gatherly.db');
+  if (configured === ':memory:') {
+    if (process.env.NODE_ENV === 'production') throw new Error('A persistent database is required in production.');
+    return configured;
   }
-  return path.join(process.cwd(), 'data', 'gatherly.db');
+  const resolved = path.resolve(configured);
+  const publicDir = path.resolve(process.cwd(), 'public');
+  const relativeToPublic = path.relative(publicDir, resolved);
+  if (relativeToPublic === '' || (!relativeToPublic.startsWith('..') && !path.isAbsolute(relativeToPublic))) {
+    throw new Error('DATABASE_URL must not point into the public directory.');
+  }
+  return resolved;
 }
 
 /**
@@ -22,6 +30,29 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
   sqlite.exec(`
     PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+
+    CREATE TABLE IF NOT EXISTS request_limits (
+      key TEXT PRIMARY KEY,
+      count INTEGER NOT NULL,
+      reset_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_request_limits_reset_at ON request_limits(reset_at);
 
     CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY,

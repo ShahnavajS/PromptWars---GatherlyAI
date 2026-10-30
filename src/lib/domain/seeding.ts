@@ -57,35 +57,35 @@ const TEMPLATES: Record<
         title: 'Confirm ceremony dates and guest list count',
         category: 'GENERAL',
         priority: 'CRITICAL',
-        description: 'Align with family members on auspicious dates and initial guest headcounts.',
+        description: 'Confirm the ceremony date and initial guest count with the couple and families.',
         dueDayOffset: 3,
       },
       {
         title: 'Shortlist and tour prospective wedding venues',
         category: 'VENUE',
         priority: 'HIGH',
-        description: 'Verify capacity, parking, and catering policy (e.g. pure veg/outside caterer).',
+        description: 'Verify capacity, accessibility, parking, and catering policy.',
         dueDayOffset: 7,
       },
       {
         title: 'Estimate catering plate count and dietary requirements',
         category: 'CATERING',
         priority: 'HIGH',
-        description: 'Determine Jain, vegetarian, and live food counter requirements.',
+        description: 'Collect dietary needs, serving style, and estimated plate count.',
         dueDayOffset: 10,
       },
       {
         title: 'Brief decorator on theme and stage preferences',
         category: 'DECOR',
         priority: 'MEDIUM',
-        description: 'Select colors, mandap style, entrance floral design, and lighting.',
+        description: 'Choose colors, ceremony setup, entrance design, and lighting.',
         dueDayOffset: 14,
       },
       {
         title: 'Interview photographers for multi-event coverage',
         category: 'LOGISTICS',
         priority: 'MEDIUM',
-        description: 'Check portfolios for candid photography and traditional ceremony experience.',
+        description: 'Check portfolios and confirm coverage for the chosen ceremony format.',
         dueDayOffset: 20,
       },
     ],
@@ -169,6 +169,20 @@ const TEMPLATES: Record<
       },
     ],
   },
+  CELEBRATION: {
+    contingencyPercent: 10,
+    categories: [
+      { name: 'Food & Hospitality', percentage: 35 },
+      { name: 'Venue & Seating', percentage: 25 },
+      { name: 'Decor & Activities', percentage: 20 },
+      { name: 'Photography & Logistics', percentage: 10 },
+    ],
+    tasks: [
+      { title: 'Confirm occasion and guest list', category: 'GENERAL', priority: 'HIGH', description: 'Agree on the gathering format, guest count, and invitations.', dueDayOffset: 21 },
+      { title: 'Book an accessible venue', category: 'VENUE', priority: 'HIGH', description: 'Check capacity, transport access, and facilities.', dueDayOffset: 18 },
+      { title: 'Plan food and dietary choices', category: 'CATERING', priority: 'MEDIUM', description: 'Confirm menu and dietary needs with attendees.', dueDayOffset: 12 },
+    ],
+  },
 };
 
 /**
@@ -180,7 +194,7 @@ export function getInitialSeedData(
   baseDate: Date = new Date()
 ): SeedDataResult {
   const normalizedType = eventType.toUpperCase();
-  const template = TEMPLATES[normalizedType] || TEMPLATES.WEDDING;
+  const template = TEMPLATES[normalizedType] || TEMPLATES.CELEBRATION;
 
   // 1. Calculate contingency
   const contingencyPaise = Math.floor((totalBudgetPaise * template.contingencyPercent) / 100);
@@ -212,7 +226,7 @@ export function getInitialSeedData(
   // 3. Generate starter tasks with computed due dates
   const tasks = template.tasks.map((task) => {
     const dueDate = new Date(baseDate);
-    dueDate.setDate(dueDate.getDate() + task.dueDayOffset);
+    dueDate.setUTCDate(dueDate.getUTCDate() - task.dueDayOffset);
     return {
       title: task.title,
       category: task.category,

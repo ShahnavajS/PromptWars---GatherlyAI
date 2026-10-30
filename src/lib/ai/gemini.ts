@@ -25,7 +25,8 @@ export class GeminiGenerationError extends Error {
  * Checks if the Gemini API key is configured server-side.
  */
 export function isGeminiConfigured(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim().length > 0);
+  const key = process.env.GEMINI_API_KEY?.trim();
+  return Boolean(key && !key.startsWith('your-gemini-api-key'));
 }
 
 /**
@@ -74,11 +75,6 @@ export async function generateStructuredPlanWithGemini(
     });
 
     rawResponseText = response.text || '';
-    // Server-side diagnostic log (never logs secrets or user PII)
-    console.log(
-      `[Gemini] model=${modelName} chars=${rawResponseText.length} ` +
-        `preview=${rawResponseText.slice(0, 200).replace(/\n/g, ' ')}`
-    );
   } catch (err: unknown) {
     const errMsg = err instanceof Error ? err.message : String(err);
     if (errMsg.includes('API key') || errMsg.includes('401') || errMsg.includes('unauthenticated')) {
@@ -87,7 +83,7 @@ export async function generateStructuredPlanWithGemini(
     if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED')) {
       throw new GeminiGenerationError('Gemini rate limit exceeded. Please wait a moment before trying again.');
     }
-    throw new GeminiGenerationError(`Gemini plan generation failed: ${errMsg}`);
+    throw new GeminiGenerationError('Gemini plan generation failed. Please retry.');
   }
 
   if (!rawResponseText) {

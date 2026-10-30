@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { formatINR, formatCompactINR, formatDate, calculateDaysRemaining } from '@/lib/domain/formatting';
 
 describe('Indian Currency & Date Formatting', () => {
@@ -45,12 +45,13 @@ describe('Indian Currency & Date Formatting', () => {
 
   describe('calculateDaysRemaining', () => {
     it('calculates future event countdown', () => {
-      const future = new Date();
-      future.setDate(future.getDate() + 10);
-      const res = calculateDaysRemaining(future.toISOString().split('T')[0]);
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-10-29T20:00:00Z')); // 30 October in Kolkata
+      const res = calculateDaysRemaining('2026-11-09');
       expect(res.isPast).toBe(false);
       expect(res.days).toBe(10);
       expect(res.label).toBe('10 days to go');
+      vi.useRealTimers();
     });
   });
 });

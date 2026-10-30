@@ -30,7 +30,7 @@ export async function PATCH(
         {
           success: false,
           error: 'Validation failed.',
-          issues: error.errors.map((e) => ({
+          issues: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,
           })),

@@ -27,7 +27,7 @@ export async function PATCH(
         {
           success: false,
           error: 'Validation failed.',
-          issues: error.errors.map((e) => ({
+          issues: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,
           })),
@@ -39,7 +39,10 @@ export async function PATCH(
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Schedule item not found.' }, { status: 404 });
     }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    if (message === 'End time must be after start time.') {
+      return NextResponse.json({ success: false, error: message }, { status: 400 });
+    }
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
 
@@ -62,7 +65,7 @@ export async function DELETE(
     if (message === 'NOT_FOUND') {
       return NextResponse.json({ success: false, error: 'Schedule item not found.' }, { status: 404 });
     }
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
 

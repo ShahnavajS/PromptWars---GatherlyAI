@@ -172,6 +172,12 @@ export async function updateScheduleItem(
     throw new Error('NOT_FOUND');
   }
 
+  const startTime = input.startTime === undefined ? existing[0].startTime : input.startTime;
+  const endTime = input.endTime === undefined ? existing[0].endTime : input.endTime;
+  if (startTime && endTime && endTime <= startTime) {
+    throw new Error('End time must be after start time.');
+  }
+
   db.update(eventSchedules)
     .set({
       ...(input.dayNumber !== undefined ? { dayNumber: input.dayNumber } : {}),

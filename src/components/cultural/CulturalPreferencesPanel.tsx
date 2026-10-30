@@ -214,7 +214,7 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
         </div>
       )}
 
-      <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+      <div className="surface-card p-6">
         <div className="border-b border-amber-100 pb-4 mb-6">
           <h2 className="text-lg font-bold text-slate-900">Cultural Preferences</h2>
           <p className="text-xs text-slate-500">
@@ -225,15 +225,15 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
 
         {/* Current Preset Display */}
         {currentPreset && (
-          <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/40 p-4">
+          <div className="mb-6 rounded-2xl border border-[#d5e1d3] bg-[#e8efe5]/40 p-4">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xl">{PRESET_EMOJIS[selectedPreset as PresetKey]}</span>
-              <span className="font-bold text-orange-900">{currentPreset.label}</span>
+              <span className="font-bold text-[#263b34]">{currentPreset.label}</span>
             </div>
             {currentPreset.traditions.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {currentPreset.traditions.map((t) => (
-                  <span key={t} className="rounded-full bg-white border border-orange-200 px-2.5 py-0.5 text-xs font-semibold text-orange-800">
+                  <span key={t} className="rounded-full bg-white border border-[#d5e1d3] px-2.5 py-0.5 text-xs font-semibold text-[#285942]">
                     🪔 {t}
                   </span>
                 ))}
@@ -255,7 +255,7 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
                   onClick={() => handleApplyPreset(key)}
                   className={`rounded-2xl border-2 p-4 text-left transition-all ${
                     isSelected
-                      ? 'border-orange-500 bg-orange-50'
+                      ? 'border-[#285942] bg-[#e8efe5]'
                       : 'border-slate-200 bg-white hover:border-amber-300 hover:bg-amber-50/40'
                   }`}
                 >
@@ -263,11 +263,11 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
                     <span className="text-lg">{PRESET_EMOJIS[key]}</span>
                     <span className="font-bold text-slate-900 text-sm">{preset.label}</span>
                   </div>
-                  <div className="text-[11px] text-slate-500">
+                  <div className="text-xs text-slate-500">
                     {preset.dietary === 'PURE_VEG' ? '🌿 Pure Veg' : '🍽️ Mixed'}
                   </div>
                   {preset.traditions.length > 0 && (
-                    <div className="mt-1 text-[11px] text-slate-500 line-clamp-1">
+                    <div className="mt-1 text-xs text-slate-500 line-clamp-1">
                       {preset.traditions.slice(0, 2).join(', ')}{preset.traditions.length > 2 ? '...' : ''}
                     </div>
                   )}
@@ -281,9 +281,10 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
         <div className="mb-4">
           <label className="block text-sm font-bold text-slate-800 mb-2">Dietary Preference</label>
           <select
+            aria-label="Dietary preference"
             value={dietaryPref}
             onChange={(e) => setDietaryPref(e.target.value as DietaryOption)}
-            className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           >
             {(Object.entries(DIETARY_LABELS) as [DietaryOption, string][]).map(([val, label]) => (
               <option key={val} value={val}>{label}</option>
@@ -295,11 +296,12 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
         <div className="mb-4">
           <label className="block text-sm font-bold text-slate-800 mb-1">Decor Style</label>
           <input
+            aria-label="Decor style"
             type="text"
             value={decorStyle}
             onChange={(e) => setDecorStyle(e.target.value)}
             placeholder="e.g. Marigold flowers, vibrant colors, traditional mandap"
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
 
@@ -307,11 +309,12 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
         <div className="mb-4">
           <label className="block text-sm font-bold text-slate-800 mb-1">Entertainment Style</label>
           <input
+            aria-label="Entertainment style"
             type="text"
             value={entertainmentStyle}
             onChange={(e) => setEntertainmentStyle(e.target.value)}
             placeholder="e.g. Garba night, folk music, dhol players"
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
 
@@ -319,11 +322,12 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
         <div className="mb-6">
           <label className="block text-sm font-bold text-slate-800 mb-1">Accessibility Notes</label>
           <textarea
+            aria-label="Accessibility notes"
             rows={3}
             value={accessibilityNotes}
             onChange={(e) => setAccessibilityNotes(e.target.value)}
             placeholder="e.g. Wheelchair access required, ground floor seating for elderly, hearing assistance needed"
-            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+            className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
           />
         </div>
 
@@ -337,6 +341,7 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
           </p>
           <div className="flex gap-2 mb-2">
             <input
+              aria-label="Add a custom tradition"
               type="text"
               value={newTraditionInput}
               onChange={(e) => setNewTraditionInput(e.target.value)}
@@ -347,7 +352,7 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
                 }
               }}
               placeholder="e.g. Ganesh Sthapan, Hastamelap, Cake Cutting"
-              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+              className="flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
             />
             <button
               type="button"
@@ -383,7 +388,7 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
           <button
             onClick={handleSave}
             disabled={saving}
-            className="rounded-xl bg-orange-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-orange-500 disabled:opacity-50"
+            className="rounded-xl bg-[#285942] px-6 py-2.5 text-sm font-bold text-white hover:bg-[#1e4734] disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Preferences'}
           </button>
@@ -395,8 +400,7 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
         </div>
 
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/40 p-3 text-xs text-amber-800">
-          <span className="font-bold">✨ AI Integration:</span> These preferences are automatically included
-          when generating event plans with Gemini AI.
+          <span className="font-bold">Made for your event:</span> These preferences help shape future plan suggestions.
         </div>
       </div>
     </div>

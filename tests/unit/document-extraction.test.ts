@@ -3,9 +3,7 @@ import {
   validatePdfBuffer,
   extractTextFromPdfBuffer,
   extractHeuristicQuotationFields,
-  savePrivateQuotationFile,
 } from '@/lib/services/quotationExtractionService';
-import fs from 'fs';
 
 describe('Quotation Document Upload & Extraction (Unit)', () => {
   const validMinimalPdf = Buffer.from(
@@ -55,7 +53,7 @@ describe('Quotation Document Upload & Extraction (Unit)', () => {
         Exclusions: Liquor license, Outstation generator charges
       `;
 
-      const candidate = extractHeuristicQuotationFields(text, 'Royal_Catering.pdf', 'doc_123');
+      const candidate = extractHeuristicQuotationFields(text, 'Royal_Catering.pdf');
       expect(candidate.quotedAmountPaise.value).toBe(45000000); // 4,50,000 * 100
       expect(candidate.currency.value).toBe('INR');
       expect(candidate.quoteDate.value).toBe('2026-11-15');
@@ -66,22 +64,4 @@ describe('Quotation Document Upload & Extraction (Unit)', () => {
     });
   });
 
-  describe('savePrivateQuotationFile', () => {
-    it('saves PDF to private isolated directory with random ID and cleans up', async () => {
-      const eventId = 'evt_test_private_doc';
-      const result = await savePrivateQuotationFile(eventId, validMinimalPdf, 'vendor_quote.pdf');
-
-      expect(result.privateDocumentId).toMatch(/^doc_/);
-      expect(fs.existsSync(result.fullPath)).toBe(true);
-
-      // Clean up test file and dir
-      fs.unlinkSync(result.fullPath);
-      const dir = result.fullPath.substring(0, result.fullPath.lastIndexOf('\\') || result.fullPath.lastIndexOf('/'));
-      try {
-        fs.rmdirSync(dir);
-      } catch {
-        // ignore if not empty
-      }
-    });
-  });
 });

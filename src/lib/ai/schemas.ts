@@ -133,6 +133,8 @@ export const ReviewActionSchema = z.object({
   action: z.enum(['ACCEPT_ALL', 'ACCEPT_SELECTED', 'REJECT_ALL']),
   selectedCategoryNames: z.array(z.string()).optional(),
   selectedTaskIds: z.array(z.string()).optional(),
+  selectedAgendaIndices: z.array(z.number().int().nonnegative()).optional(),
+  selectedVendorIndices: z.array(z.number().int().nonnegative()).optional(),
 });
 
 export type ReviewActionInput = z.infer<typeof ReviewActionSchema>;

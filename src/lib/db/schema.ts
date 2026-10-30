@@ -1,5 +1,26 @@
 import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  name: text('name').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const userSessions = sqliteTable('user_sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (table) => [index('idx_user_sessions_user_id').on(table.userId)]);
+
+export const requestLimits = sqliteTable('request_limits', {
+  key: text('key').primaryKey(),
+  count: integer('count').notNull(),
+  resetAt: integer('reset_at').notNull(),
+}, (table) => [index('idx_request_limits_reset_at').on(table.resetAt)]);
+
 /**
  * Events aggregate table
  */

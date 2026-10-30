@@ -154,6 +154,11 @@ describe('Plan Review, Staging & Idempotent Acceptance Integration', () => {
     // Verify workspace is updated
     const updated = await getEventById(detail.event.id, 'usr_demo');
     expect(updated?.tasks.some((t) => t.isAiSuggested)).toBe(true);
+    const raw = getRawSqlite();
+    expect((raw.prepare('SELECT count(*) AS n FROM event_schedules WHERE event_id = ?').get(detail.event.id) as { n: number }).n)
+      .toBe(fallback.plan.agendaBlocks.length);
+    expect((raw.prepare('SELECT count(*) AS n FROM vendor_requirements WHERE event_id = ?').get(detail.event.id) as { n: number }).n)
+      .toBe(fallback.plan.vendorRequirements.length);
 
     const latest = await getLatestPlanSuggestion(detail.event.id, 'usr_demo');
     expect(latest?.status).toBe('ACCEPTED');
@@ -204,6 +209,8 @@ describe('Plan Review, Staging & Idempotent Acceptance Integration', () => {
 
     const secondCheck = await getEventById(detail.event.id, 'usr_demo');
     expect(secondCheck!.tasks.length).toBe(firstCount); // Exact same task count preserved
+    expect((getRawSqlite().prepare('SELECT count(*) AS n FROM vendor_requirements WHERE event_id = ?').get(detail.event.id) as { n: number }).n)
+      .toBe(fallback.plan.vendorRequirements.length);
   });
 
   it('supports partial acceptance (ACCEPT_SELECTED) and marks PARTIALLY_ACCEPTED', async () => {
@@ -238,6 +245,12 @@ describe('Plan Review, Staging & Idempotent Acceptance Integration', () => {
     // Accept only 2 categories and 1 task
     const selectedCats = [fallback.plan.budgetPlan.categories[0].name, fallback.plan.budgetPlan.categories[1].name];
     const selectedTask = [fallback.plan.tasks[0].id];
+    const originalIds = new Map(detail.categories.map((category) => [category.name, category.id]));
+    const sqlite = getRawSqlite();
+    sqlite.prepare('INSERT INTO vendors (id, event_id, name, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run('vnd_partial', detail.event.id, 'Existing caterer', 'CATERING', '2026-10-01', '2026-10-01');
+    sqlite.prepare('INSERT INTO vendor_quotes (id, event_id, vendor_id, category_id, quote_title, quoted_amount_paise, quote_date, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run('quo_partial', detail.event.id, 'vnd_partial', detail.categories[0].id, 'Catering quote', 100000, '2026-10-01', '2026-10-01', '2026-10-01');
 
     const result = await applyPlanReview(
       detail.event.id,
@@ -255,6 +268,14 @@ describe('Plan Review, Staging & Idempotent Acceptance Integration', () => {
 
     const latest = await getLatestPlanSuggestion(detail.event.id, 'usr_demo');
     expect(latest?.status).toBe('PARTIALLY_ACCEPTED');
+    const updated = await getEventById(detail.event.id, 'usr_demo');
+    for (const [name, id] of originalIds) {
+      expect(updated?.categories.find((category) => category.name === name)?.id).toBe(id);
+    }
+    expect(updated!.categories.reduce((sum, category) => sum + category.allocatedPaise, 0))
+      .toBeLessThanOrEqual(updated!.budget.totalBudgetPaise - updated!.budget.contingencyPaise);
+    expect((sqlite.prepare('SELECT category_id FROM vendor_quotes WHERE id = ?').get('quo_partial') as { category_id: string }).category_id)
+      .toBe(detail.categories[0].id);
   });
 
   it('blocks unauthorized users from reviewing or applying suggestions', async () => {
@@ -289,6 +310,43 @@ describe('Plan Review, Staging & Idempotent Acceptance Integration', () => {
     await expect(
       applyPlanReview(detail.event.id, saved.id, { action: 'ACCEPT_ALL' }, 'usr_attacker')
     ).rejects.toThrow(/unauthorized/i);
+  });
+
+  it('does not reduce a confirmed quote commitment when adopting a plan', async () => {
+    const detail = await createEvent({
+      title: 'Committed Wedding', eventType: 'WEDDING', startDate: '2026-11-20',
+      venueCity: 'Ahmedabad', targetGuestCount: 100, totalBudgetRupees: 1000000,
+    });
+    const fallback = getStarterPlanTemplate('WEDDING', detail.event.title, 'Ahmedabad', 100, 1000000, '2026-11-20');
+    const saved = await savePlanSuggestion(detail.event.id, 'Notes', fallback.plan, 'test-model');
+    const sqlite = getRawSqlite();
+    sqlite.prepare('INSERT INTO vendors (id, event_id, name, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run('vnd_committed', detail.event.id, 'Caterer', 'CATERING', '2026-10-01', '2026-10-01');
+    const protectedCategory = detail.categories[0];
+    const proposed = fallback.plan.budgetPlan.categories.find((category) => category.name === protectedCategory.name)!;
+    sqlite.prepare('INSERT INTO vendor_quotes (id, event_id, vendor_id, category_id, quote_title, quoted_amount_paise, quote_date, confirmed_commitment, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run('quo_committed', detail.event.id, 'vnd_committed', protectedCategory.id, 'Signed quote', proposed.allocatedPaise + 1, '2026-10-01', 1, '2026-10-01', '2026-10-01');
+
+    await expect(applyPlanReview(detail.event.id, saved.id, {
+      action: 'ACCEPT_SELECTED', selectedCategoryNames: [protectedCategory.name],
+    })).rejects.toThrow(/confirmed quote commitment/);
+    const after = await getEventById(detail.event.id);
+    expect(after!.categories.find((category) => category.id === protectedCategory.id)?.allocatedPaise)
+      .toBe(protectedCategory.allocatedPaise);
+    expect((await getLatestPlanSuggestion(detail.event.id))?.status).toBe('PENDING_REVIEW');
+  });
+
+  it('rejects agenda blocks outside a single-day event', async () => {
+    const detail = await createEvent({
+      title: 'One Day Birthday', eventType: 'BIRTHDAY', startDate: '2026-11-20',
+      venueCity: 'Pune', targetGuestCount: 50, totalBudgetRupees: 100000,
+    });
+    const fallback = getStarterPlanTemplate('BIRTHDAY', detail.event.title, 'Pune', 50, 100000, '2026-11-20');
+    fallback.plan.agendaBlocks.push({ dayNumber: 2, title: 'Unplanned second day', timeWindow: 'Morning', description: 'Outside event range' });
+    const saved = await savePlanSuggestion(detail.event.id, 'Notes', fallback.plan, 'test-model');
+    await expect(applyPlanReview(detail.event.id, saved.id, { action: 'ACCEPT_ALL' }))
+      .rejects.toThrow(/beyond the event date range/);
+    expect((await getLatestPlanSuggestion(detail.event.id))?.status).toBe('PENDING_REVIEW');
   });
 });
 

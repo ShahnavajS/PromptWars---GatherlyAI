@@ -189,8 +189,8 @@ export default function QuoteComparisonView({
 
         {/* Budget impact dialog */}
         {confirmResult && (
-          <div className="m-6 rounded-2xl border border-orange-300 bg-orange-50 p-5">
-            <h3 className="font-bold text-orange-900 mb-2">Budget Impact Preview</h3>
+          <div className="m-6 rounded-2xl border border-[#b8cbb6] bg-[#e8efe5] p-5">
+            <h3 className="font-bold text-[#263b34] mb-2">Budget Impact Preview</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-4">
               <div className="rounded-xl bg-white border border-slate-200 p-3 text-center">
                 <p className="text-xs text-slate-500">Quoted Amount</p>
@@ -225,14 +225,14 @@ export default function QuoteComparisonView({
               </button>
               <button
                 onClick={onConfirmed}
-                className="rounded-xl border border-orange-300 bg-white px-3 py-2 text-xs font-bold text-orange-800 hover:bg-orange-50"
+                className="rounded-xl border border-[#b8cbb6] bg-white px-3 py-2 text-xs font-bold text-[#285942] hover:bg-[#e8efe5]"
               >
                 Keep Existing Allocation
               </button>
               <button
                 onClick={handleApplyToBudget}
                 disabled={applying}
-                className="rounded-xl bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-500 disabled:opacity-50"
+                className="rounded-xl bg-[#285942] px-4 py-2 text-xs font-bold text-white hover:bg-[#1e4734] disabled:opacity-50"
               >
                 {applying ? 'Updating...' : 'Update Category Allocation'}
               </button>
@@ -251,7 +251,7 @@ export default function QuoteComparisonView({
                 id="budgetCategorySelect"
                 value={selectedCategoryId}
                 onChange={(e) => setSelectedCategoryId(e.target.value)}
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               >
                 <option value="">Select category...</option>
                 {categories.map((c) => (
@@ -265,7 +265,7 @@ export default function QuoteComparisonView({
                 type="checkbox"
                 checked={supersedeOthers}
                 onChange={(e) => setSupersedeOthers(e.target.checked)}
-                className="h-4 w-4 rounded text-orange-600 focus:ring-orange-500"
+                className="h-4 w-4 rounded text-[#285942] focus:ring-[#285942]"
               />
               <label htmlFor="supersedeCheckbox" className="text-xs text-slate-700">
                 Supersede other competing quotes for this requirement
@@ -284,7 +284,7 @@ export default function QuoteComparisonView({
                   <th scope="col" key={q.id} className="text-left font-bold text-slate-800 py-3 px-3 min-w-[220px]">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-extrabold">{q.quoteTitle}</span>
-                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${STATUS_BADGE[q.status] ?? 'bg-slate-100 text-slate-700'}`}>
+                      <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${STATUS_BADGE[q.status] ?? 'bg-slate-100 text-slate-700'}`}>
                         {q.status}
                       </span>
                     </div>
@@ -305,7 +305,7 @@ export default function QuoteComparisonView({
                         </span>
                         {isLowest && (
                           <span
-                            className="inline-block rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800 self-start"
+                            className="inline-block rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-bold text-emerald-800 self-start"
                             title="Lowest nominal price only. Does not account for scope differences or qualitative vendor merit."
                           >
                             Lowest Price (Scope may differ)
@@ -386,7 +386,7 @@ export default function QuoteComparisonView({
                             <p><span className="font-semibold">Advance Deposit:</span> {terms.advancePercentage}%</p>
                           )}
                           {terms.milestones && terms.milestones.length > 0 && (
-                            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-slate-600">
+                            <ul className="list-disc list-inside space-y-0.5 text-xs text-slate-600">
                               {terms.milestones.map((m, i) => (
                                 <li key={i}>{m.description}: {m.percentage}%</li>
                               ))}
@@ -429,7 +429,7 @@ export default function QuoteComparisonView({
                           handleConfirm(q);
                         }}
                         disabled={applying || !!confirmingQuoteId || q.status === 'ACCEPTED' || !selectedCategoryId}
-                        className="rounded-xl bg-orange-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-orange-500 disabled:opacity-40"
+                        className="rounded-xl bg-[#285942] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#1e4734] disabled:opacity-40"
                       >
                         {applying && confirmingQuoteId === q.id ? 'Confirming...' : q.status === 'ACCEPTED' ? '✓ Accepted' : 'Confirm This Quote'}
                       </button>

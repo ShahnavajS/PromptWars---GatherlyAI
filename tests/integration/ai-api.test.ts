@@ -4,8 +4,10 @@ import { POST as postPlan, GET as getPlan } from '@/app/api/ai/plan/route';
 import { POST as postReview } from '@/app/api/ai/plan/[suggestionId]/review/route';
 import { createEvent } from '@/lib/services/eventService';
 import { getRawSqlite } from '@/lib/db';
+import { testSession } from '../helpers/auth';
 
 describe('AI Planning API Routes Integration', () => {
+  let token: string;
   beforeEach(() => {
     const rawSqlite = getRawSqlite();
     rawSqlite.exec(`
@@ -15,6 +17,7 @@ describe('AI Planning API Routes Integration', () => {
       DELETE FROM event_budgets;
       DELETE FROM events;
     `);
+    token = testSession({ id: 'usr_demo', name: 'Test Organizer', email: 'test-organizer@example.com' });
   });
 
   describe('POST /api/ai/plan', () => {
@@ -30,7 +33,7 @@ describe('AI Planning API Routes Integration', () => {
 
       const req = new NextRequest('http://localhost:3000/api/ai/plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           eventId: eventDetail.event.id,
           additionalContext: 'Include pure vegetarian and Jain food options.',
@@ -51,7 +54,7 @@ describe('AI Planning API Routes Integration', () => {
     it('returns 404 when eventId does not exist', async () => {
       const req = new NextRequest('http://localhost:3000/api/ai/plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           eventId: 'evt_does_not_exist',
           additionalContext: 'Notes',
@@ -68,7 +71,7 @@ describe('AI Planning API Routes Integration', () => {
     it('returns 400 when request body is malformed or missing eventId', async () => {
       const req = new NextRequest('http://localhost:3000/api/ai/plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           additionalContext: 'Missing event ID',
         }),
@@ -82,8 +85,25 @@ describe('AI Planning API Routes Integration', () => {
   });
 
   describe('GET /api/ai/plan?eventId=...', () => {
+    it('uses the bearer identity to enforce plan ownership', async () => {
+      const owner = 'usr_plan_owner';
+      const event = await createEvent({
+        title: 'Private Community Fair', eventType: 'COMMUNITY', startDate: '2026-12-05',
+        venueCity: 'Pune', targetGuestCount: 300, totalBudgetRupees: 300000,
+      }, owner);
+      const url = `http://localhost:3000/api/ai/plan?eventId=${event.event.id}`;
+      const ownerToken = testSession({ id: owner, name: 'Owner', email: 'owner@example.com' });
+      const otherToken = testSession({ id: 'usr_other', name: 'Other', email: 'other@example.com' });
+      const generated = await postPlan(new NextRequest('http://localhost:3000/api/ai/plan', {
+        method: 'POST', headers: { authorization: `Bearer ${ownerToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: event.event.id, additionalContext: '' }),
+      }));
+      expect(generated.status).toBe(201);
+      const response = await getPlan(new NextRequest(url, { headers: { authorization: `Bearer ${otherToken}` } }));
+      expect((await response.json()).suggestion).toBeNull();
+    });
     it('returns 400 when eventId parameter is missing', async () => {
-      const req = new NextRequest('http://localhost:3000/api/ai/plan');
+      const req = new NextRequest('http://localhost:3000/api/ai/plan', { headers: { authorization: `Bearer ${token}` } });
       const res = await getPlan(req);
       expect(res.status).toBe(400);
       const json = await res.json();
@@ -103,7 +123,7 @@ describe('AI Planning API Routes Integration', () => {
       // Generate a plan
       const genReq = new NextRequest('http://localhost:3000/api/ai/plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           eventId: eventDetail.event.id,
           additionalContext: 'Birthday party',
@@ -113,7 +133,8 @@ describe('AI Planning API Routes Integration', () => {
 
       // Now query via GET
       const getReq = new NextRequest(
-        `http://localhost:3000/api/ai/plan?eventId=${eventDetail.event.id}`
+        `http://localhost:3000/api/ai/plan?eventId=${eventDetail.event.id}`,
+        { headers: { authorization: `Bearer ${token}` } }
       );
       const getRes = await getPlan(getReq);
       expect(getRes.status).toBe(200);
@@ -138,7 +159,7 @@ describe('AI Planning API Routes Integration', () => {
 
       const genReq = new NextRequest('http://localhost:3000/api/ai/plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           eventId: eventDetail.event.id,
           additionalContext: 'Review test',
@@ -152,7 +173,7 @@ describe('AI Planning API Routes Integration', () => {
         `http://localhost:3000/api/ai/plan/${suggestionId}/review?eventId=${eventDetail.event.id}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             action: 'ACCEPT_ALL',
           }),
@@ -173,7 +194,7 @@ describe('AI Planning API Routes Integration', () => {
     it('returns 400 when eventId query param is missing', async () => {
       const reviewReq = new NextRequest('http://localhost:3000/api/ai/plan/sug_123/review', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ action: 'ACCEPT_ALL' }),
       });
 

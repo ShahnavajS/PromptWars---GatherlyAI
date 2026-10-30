@@ -45,4 +45,10 @@ describe('Deterministic Initial Seeding', () => {
 
     expect(totalAllocated).toBe(oddTotalPaise);
   });
+
+  it('uses occasion-specific celebration seeds and deadlines before the event', () => {
+    const seed = getInitialSeedData('CELEBRATION', 1_000_000, new Date('2026-11-20T00:00:00Z'));
+    expect(seed.categories.some((category) => category.name.includes('Hospitality'))).toBe(true);
+    expect(seed.tasks.every((task) => task.dueDateIso < '2026-11-20')).toBe(true);
+  });
 });

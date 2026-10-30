@@ -24,7 +24,6 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }
 
-    const message = error instanceof Error ? error.message : 'Internal server error.';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }

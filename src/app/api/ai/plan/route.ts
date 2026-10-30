@@ -4,12 +4,14 @@ import { isGeminiConfigured, generateStructuredPlanWithGemini } from '@/lib/ai/g
 import { getStarterPlanTemplate } from '@/lib/ai/fallbacks';
 import { getEventById } from '@/lib/services/eventService';
 import { savePlanSuggestion, getLatestPlanSuggestion } from '@/lib/services/planReviewService';
+import { getPreferences } from '@/lib/services/preferencesService';
 import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
+import { allowRequest } from '@/lib/auth/rateLimit';
 import { ZodError } from 'zod';
 
 export async function GET(req: NextRequest) {
   try {
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
     const { searchParams } = new URL(req.url);
     const eventId = searchParams.get('eventId');
 
@@ -24,14 +26,16 @@ export async function GET(req: NextRequest) {
       suggestion,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Failed to retrieve suggestion.';
-    return NextResponse.json({ success: false, error: msg }, { status: 500 });
+    if (err instanceof UnauthorizedSessionError) {
+      return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
+    }
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const session = getCurrentSessionUser();
+    const session = getCurrentSessionUser(req);
     const body = await req.json();
     const validated = GeneratePlanRequestSchema.parse(body);
 
@@ -40,8 +44,19 @@ export async function POST(req: NextRequest) {
     if (!eventDetail) {
       return NextResponse.json({ success: false, error: 'Event not found or unauthorized.' }, { status: 404 });
     }
+    if (!allowRequest('ai-plan', session.id, 10, 60 * 60_000)) {
+      return NextResponse.json({ success: false, error: 'Plan generation limit reached. Try again later.' }, { status: 429 });
+    }
 
     const totalBudgetRupees = Math.round(eventDetail.budget.totalBudgetPaise / 100);
+    const preferences = await getPreferences(validated.eventId, session.id);
+    const preferenceNotes = preferences ? [
+      `Cultural preset: ${validated.culturalTraditionOverride || preferences.culturalPreset}`,
+      `Dietary preference: ${validated.dietaryPreferenceOverride || preferences.dietaryPreference}`,
+      preferences.accessibilityNotes ? `Accessibility: ${preferences.accessibilityNotes}` : '',
+      preferences.decorStyle ? `Decor style: ${preferences.decorStyle}` : '',
+      preferences.entertainmentStyle ? `Entertainment style: ${preferences.entertainmentStyle}` : '',
+    ].filter(Boolean).join('\n') : '';
     const promptCtx = {
       eventTitle: eventDetail.event.title,
       eventType: eventDetail.event.eventType,
@@ -51,7 +66,7 @@ export async function POST(req: NextRequest) {
       venueName: eventDetail.event.venueName,
       targetGuestCount: eventDetail.event.targetGuestCount,
       totalBudgetRupees,
-      additionalContext: validated.additionalContext,
+      additionalContext: [validated.additionalContext, preferenceNotes].filter(Boolean).join('\n\n'),
     };
 
     let generatedPlan;
@@ -63,10 +78,8 @@ export async function POST(req: NextRequest) {
         const result = await generateStructuredPlanWithGemini(promptCtx);
         generatedPlan = result.plan;
         modelUsed = result.modelUsed;
-      } catch (geminiError: unknown) {
-        console.error('[Gemini Generation Error]', geminiError);
-        const errMsg = geminiError instanceof Error ? geminiError.message : 'Gemini call failed.';
-        return NextResponse.json({ success: false, error: errMsg }, { status: 502 });
+      } catch {
+        return NextResponse.json({ success: false, error: 'AI planning service is temporarily unavailable.' }, { status: 502 });
       }
     } else {
       // Honest deterministic fallback template when Gemini is not configured
@@ -76,7 +89,8 @@ export async function POST(req: NextRequest) {
         eventDetail.event.venueCity,
         eventDetail.event.targetGuestCount,
         totalBudgetRupees,
-        eventDetail.event.startDate
+        eventDetail.event.startDate,
+        preferences?.culturalPreset
       );
       generatedPlan = fallback.plan;
       modelUsed = fallback.modelUsed;
@@ -112,7 +126,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error: 'Validation failed.',
-          issues: error.errors.map((e) => ({
+          issues: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,
           })),
@@ -120,8 +134,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const message = error instanceof Error ? error.message : 'Internal server error.';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: 'Internal server error.' }, { status: 500 });
   }
 }
 

@@ -5,8 +5,10 @@ import { POST as postConfirm } from '@/app/api/events/[id]/change-impact/confirm
 import { GET as getHistory } from '@/app/api/events/[id]/history/route';
 import { createEvent } from '@/lib/services/eventService';
 import { getRawSqlite } from '@/lib/db';
+import { testSession } from '../helpers/auth';
 
 describe('Change-Impact API Routes Integration', () => {
+  let token: string;
   beforeEach(() => {
     const rawSqlite = getRawSqlite();
     rawSqlite.exec(`
@@ -17,6 +19,7 @@ describe('Change-Impact API Routes Integration', () => {
       DELETE FROM event_budgets;
       DELETE FROM events;
     `);
+    token = testSession({ id: 'usr_demo', name: 'Test Organizer', email: 'test-organizer@example.com' });
   });
 
   describe('POST /api/events/[id]/change-impact/preview', () => {
@@ -34,7 +37,7 @@ describe('Change-Impact API Routes Integration', () => {
         `http://localhost:3000/api/events/${detail.event.id}/change-impact/preview`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             changeType: 'GUEST_COUNT',
             proposedChanges: { targetGuestCount: 300 },
@@ -65,7 +68,7 @@ describe('Change-Impact API Routes Integration', () => {
         `http://localhost:3000/api/events/${detail.event.id}/change-impact/preview`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             changeType: 'GUEST_COUNT',
             proposedChanges: { targetGuestCount: -50 }, // Invalid!
@@ -86,7 +89,7 @@ describe('Change-Impact API Routes Integration', () => {
         'http://localhost:3000/api/events/evt_nonexistent/change-impact/preview',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             changeType: 'GUEST_COUNT',
             proposedChanges: { targetGuestCount: 250 },
@@ -116,7 +119,7 @@ describe('Change-Impact API Routes Integration', () => {
         `http://localhost:3000/api/events/${detail.event.id}/change-impact/confirm`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             previewId: 'prv_123',
             sourceVersion: 1,
@@ -153,7 +156,7 @@ describe('Change-Impact API Routes Integration', () => {
         `http://localhost:3000/api/events/${detail.event.id}/change-impact/confirm`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             previewId: 'prv_obsolete',
             sourceVersion: 999, // Stale!
@@ -186,7 +189,7 @@ describe('Change-Impact API Routes Integration', () => {
         totalBudgetRupees: 1200000,
       });
 
-      const req = new NextRequest(`http://localhost:3000/api/events/${detail.event.id}/history`);
+      const req = new NextRequest(`http://localhost:3000/api/events/${detail.event.id}/history`, { headers: { authorization: `Bearer ${token}` } });
       const res = await getHistory(req, {
         params: Promise.resolve({ id: detail.event.id }),
       });

@@ -11,11 +11,11 @@ import { StructuredPlanOutput } from '@/lib/ai/schemas';
 // Mock the GoogleGenAI SDK module
 vi.mock('@google/genai', () => {
   return {
-    GoogleGenAI: vi.fn().mockImplementation(() => ({
+    GoogleGenAI: vi.fn().mockImplementation(function () { return {
       models: {
         generateContent: vi.fn(),
       },
-    })),
+    }; }),
   };
 });
 
@@ -142,11 +142,11 @@ describe('GenAI Planning Engine (@google/genai)', () => {
       });
 
       // @ts-expect-error mocked constructor
-      GoogleGenAI.mockImplementation(() => ({
+      GoogleGenAI.mockImplementation(function () { return {
         models: {
           generateContent: mockGenerateContent,
         },
-      }));
+      }; });
 
       const result = await generateStructuredPlanWithGemini(validPromptContext);
 
@@ -168,11 +168,11 @@ describe('GenAI Planning Engine (@google/genai)', () => {
       const mockGenerateContent = vi.fn().mockRejectedValue(new Error('API key not valid'));
 
       // @ts-expect-error mocked constructor
-      GoogleGenAI.mockImplementation(() => ({
+      GoogleGenAI.mockImplementation(function () { return {
         models: {
           generateContent: mockGenerateContent,
         },
-      }));
+      }; });
 
       await expect(generateStructuredPlanWithGemini(validPromptContext)).rejects.toThrow(
         /Gemini authentication failed/
@@ -188,11 +188,11 @@ describe('GenAI Planning Engine (@google/genai)', () => {
       });
 
       // @ts-expect-error mocked constructor
-      GoogleGenAI.mockImplementation(() => ({
+      GoogleGenAI.mockImplementation(function () { return {
         models: {
           generateContent: mockGenerateContent,
         },
-      }));
+      }; });
 
       await expect(generateStructuredPlanWithGemini(validPromptContext)).rejects.toThrow(
         /not valid JSON/
@@ -212,11 +212,11 @@ describe('GenAI Planning Engine (@google/genai)', () => {
       });
 
       // @ts-expect-error mocked constructor
-      GoogleGenAI.mockImplementation(() => ({
+      GoogleGenAI.mockImplementation(function () { return {
         models: {
           generateContent: mockGenerateContent,
         },
-      }));
+      }; });
 
       await expect(generateStructuredPlanWithGemini(validPromptContext)).rejects.toThrow(
         /Structured validation failed/
@@ -225,7 +225,7 @@ describe('GenAI Planning Engine (@google/genai)', () => {
   });
 
   describe('Prompt Injection Defenses', () => {
-    it('sanitizes user context by removing injected system tags', () => {
+    it('encodes untrusted notes as JSON data, including role-like text', () => {
       const hostileContext = {
         eventTitle: 'Normal Wedding',
         eventType: 'WEDDING',
@@ -240,10 +240,10 @@ describe('GenAI Planning Engine (@google/genai)', () => {
       };
 
       const prompt = buildUserPrompt(hostileContext);
-      expect(prompt).not.toContain('<system>');
-      expect(prompt).toContain('<user_supplied_planning_notes>');
-      expect(prompt).toContain('Normal notes');
-      expect(prompt).toContain('More notes');
+      const encoded = prompt.split('EVENT CONTEXT JSON:\n')[1].split('\n\nReturn a single')[0];
+      const context = JSON.parse(encoded);
+      expect(context.planningNotes).toBe(hostileContext.additionalContext);
+      expect(context.eventTitle).toBe('Normal Wedding');
     });
   });
 

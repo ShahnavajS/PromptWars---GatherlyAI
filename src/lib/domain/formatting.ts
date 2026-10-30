@@ -121,14 +121,15 @@ export function calculateDaysRemaining(eventStartDate: string): {
   isPast: boolean;
 } {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const eventDate = new Date(eventStartDate);
-    eventDate.setHours(0, 0, 0, 0);
-
-    const diffMs = eventDate.getTime() - today.getTime();
-    const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(eventStartDate)) throw new Error('Invalid date');
+    const eventMs = Date.parse(`${eventStartDate}T00:00:00Z`);
+    if (Number.isNaN(eventMs)) throw new Error('Invalid date');
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type: string) => parts.find((item) => item.type === type)?.value;
+    const todayMs = Date.UTC(Number(part('year')), Number(part('month')) - 1, Number(part('day')));
+    const days = Math.round((eventMs - todayMs) / 86400000);
 
     if (days < 0) {
       return { days: Math.abs(days), label: `${Math.abs(days)} days ago`, isPast: true };

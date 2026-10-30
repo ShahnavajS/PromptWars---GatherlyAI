@@ -1,5 +1,5 @@
 import { getDb, getRawSqlite } from '@/lib/db';
-import { aiPlanSuggestions, eventBudgets, budgetCategories, eventTasks } from '@/lib/db/schema';
+import { aiPlanSuggestions, eventBudgets, budgetCategories, eventTasks, eventSchedules, vendorRequirements, vendorQuotes } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { NormalizedPlanSuggestion } from '@/lib/ai/schemas';
 import { getEventById } from './eventService';
@@ -112,9 +112,11 @@ export async function applyPlanReview(
     action: 'ACCEPT_ALL' | 'ACCEPT_SELECTED' | 'REJECT_ALL';
     selectedCategoryNames?: string[];
     selectedTaskIds?: string[];
+    selectedAgendaIndices?: number[];
+    selectedVendorIndices?: number[];
   },
   userId = 'usr_demo'
-): Promise<{ success: boolean; appliedCategoriesCount: number; appliedTasksCount: number }> {
+): Promise<{ success: boolean; status: string; appliedCategoriesCount: number; appliedTasksCount: number; appliedAgendaCount: number; appliedVendorCount: number }> {
   const db = getDb();
   const rawSqlite = getRawSqlite();
 
@@ -138,6 +140,10 @@ export async function applyPlanReview(
   const suggestion = suggestions[0];
   const now = new Date().toISOString();
 
+  if (suggestion.status !== 'PENDING_REVIEW') {
+    return { success: true, status: suggestion.status, appliedCategoriesCount: 0, appliedTasksCount: 0, appliedAgendaCount: 0, appliedVendorCount: 0 };
+  }
+
   if (options.action === 'REJECT_ALL') {
     db.update(aiPlanSuggestions)
       .set({
@@ -147,12 +153,14 @@ export async function applyPlanReview(
       .where(eq(aiPlanSuggestions.id, suggestionId))
       .run();
 
-    return { success: true, appliedCategoriesCount: 0, appliedTasksCount: 0 };
+    return { success: true, status: 'REJECTED', appliedCategoriesCount: 0, appliedTasksCount: 0, appliedAgendaCount: 0, appliedVendorCount: 0 };
   }
 
   const parsedPlan: NormalizedPlanSuggestion = JSON.parse(suggestion.rawPayloadJson);
   let appliedCategoriesCount = 0;
   let appliedTasksCount = 0;
+  let appliedAgendaCount = 0;
+  let appliedVendorCount = 0;
 
   // Filter categories to apply
   const categoriesToApply =
@@ -167,27 +175,85 @@ export async function applyPlanReview(
     options.action === 'ACCEPT_ALL'
       ? parsedPlan.tasks
       : parsedPlan.tasks.filter((t) => options.selectedTaskIds?.includes(t.id));
+  const agendaToApply = parsedPlan.agendaBlocks.filter((_, index) =>
+    options.action === 'ACCEPT_ALL' || options.selectedAgendaIndices?.includes(index));
+  const vendorsToApply = parsedPlan.vendorRequirements.filter((_, index) =>
+    options.action === 'ACCEPT_ALL' || options.selectedVendorIndices?.includes(index));
+  const eventDays = eventDetail.event.endDate
+    ? Math.round((Date.parse(`${eventDetail.event.endDate}T00:00:00Z`) -
+        Date.parse(`${eventDetail.event.startDate}T00:00:00Z`)) / 86400000) + 1
+    : 1;
+  if (agendaToApply.some((block) => block.dayNumber > eventDays)) {
+    throw new Error('Selected agenda extends beyond the event date range. Extend the event or deselect those items.');
+  }
+  const fullSelection = categoriesToApply.length === parsedPlan.budgetPlan.categories.length &&
+    tasksToApply.length === parsedPlan.tasks.length &&
+    agendaToApply.length === parsedPlan.agendaBlocks.length &&
+    vendorsToApply.length === parsedPlan.vendorRequirements.length;
+  const newStatus = fullSelection ? 'ACCEPTED' : 'PARTIALLY_ACCEPTED';
+  let finalStatus = newStatus;
 
   // Atomic database transaction
   const executeTransaction = rawSqlite.transaction(() => {
+    const current = db.select({ status: aiPlanSuggestions.status }).from(aiPlanSuggestions)
+      .where(eq(aiPlanSuggestions.id, suggestionId)).get();
+    if (current?.status !== 'PENDING_REVIEW') {
+      finalStatus = current?.status || 'UNKNOWN';
+      return;
+    }
     // 1. Update budget categories if any selected
     if (categoriesToApply.length > 0) {
-      // Remove existing initial starter categories to adopt the AI plan cleanly
-      db.delete(budgetCategories).where(eq(budgetCategories.eventId, eventId)).run();
+      const existing = db.select().from(budgetCategories)
+        .where(eq(budgetCategories.eventId, eventId)).all();
+      const selectedNames = new Set(categoriesToApply.map((cat) => cat.name.trim().toLowerCase()));
+      const untouched = existing.filter((cat) => !selectedNames.has(cat.name.trim().toLowerCase()));
+      const commitments = new Map<string, number>();
+      for (const quote of db.select({ categoryId: vendorQuotes.categoryId, amount: vendorQuotes.quotedAmountPaise })
+        .from(vendorQuotes).where(and(eq(vendorQuotes.eventId, eventId), eq(vendorQuotes.confirmedCommitment, true))).all()) {
+        if (quote.categoryId) commitments.set(quote.categoryId, (commitments.get(quote.categoryId) || 0) + quote.amount);
+      }
+      const requireCommitmentRoom = (id: string, allocation: number) => {
+        if (allocation < (commitments.get(id) || 0)) {
+          throw new Error('Plan would reduce a category below its confirmed quote commitment. Review the budget first.');
+        }
+      };
+      const contingency = options.action === 'ACCEPT_ALL'
+        ? parsedPlan.budgetPlan.contingencyPaise
+        : eventDetail.budget.contingencyPaise;
+      const pool = eventDetail.budget.totalBudgetPaise - contingency;
+      const selectedTotal = categoriesToApply.reduce((sum, cat) => sum + cat.allocatedPaise, 0);
+      if (selectedTotal > pool) throw new Error('Selected allocations exceed the available budget.');
 
-      // Update contingency on budget
-      db.update(eventBudgets)
-        .set({
-          contingencyPaise: parsedPlan.budgetPlan.contingencyPaise,
-          updatedAt: now,
-        })
-        .where(eq(eventBudgets.eventId, eventId))
-        .run();
+      // Keep category IDs so attached quotes remain linked. Only rebalance untouched
+      // allocations when the proposal would otherwise exceed the event budget.
+      const remaining = pool - selectedTotal;
+      const untouchedTotal = untouched.reduce((sum, cat) => sum + cat.allocatedPaise, 0);
+      if (untouchedTotal > remaining) {
+        let assigned = 0;
+        untouched.forEach((cat, index) => {
+          const allocation = index === untouched.length - 1
+            ? remaining - assigned
+            : Math.floor((cat.allocatedPaise / untouchedTotal) * remaining);
+          assigned += allocation;
+          requireCommitmentRoom(cat.id, allocation);
+          db.update(budgetCategories).set({ allocatedPaise: allocation, updatedAt: now })
+            .where(eq(budgetCategories.id, cat.id)).run();
+        });
+      }
 
-      // Insert new accepted categories
+      if (options.action === 'ACCEPT_ALL') {
+        db.update(eventBudgets).set({ contingencyPaise: contingency, updatedAt: now })
+          .where(eq(eventBudgets.eventId, eventId)).run();
+      }
+
       categoriesToApply.forEach((cat, idx) => {
-        db.insert(budgetCategories)
-          .values({
+        const match = existing.find((item) => item.name.trim().toLowerCase() === cat.name.trim().toLowerCase());
+        if (match) {
+          requireCommitmentRoom(match.id, cat.allocatedPaise);
+          db.update(budgetCategories).set({ allocatedPaise: cat.allocatedPaise, updatedAt: now })
+            .where(eq(budgetCategories.id, match.id)).run();
+        } else {
+          db.insert(budgetCategories).values({
             id: `cat_${crypto.randomUUID()}`,
             budgetId: eventDetail.budget.id,
             eventId,
@@ -197,8 +263,8 @@ export async function applyPlanReview(
             sortOrder: idx,
             createdAt: now,
             updatedAt: now,
-          })
-          .run();
+          }).run();
+        }
         appliedCategoriesCount++;
       });
     }
@@ -230,18 +296,49 @@ export async function applyPlanReview(
             })
             .run();
           appliedTasksCount++;
+          existingTitles.add(tsk.title.toLowerCase().trim());
         }
       });
     }
 
-    // 3. Mark suggestion status
-    const newStatus =
-      options.action === 'ACCEPT_ALL' ||
-      (appliedCategoriesCount === parsedPlan.budgetPlan.categories.length &&
-        appliedTasksCount === parsedPlan.tasks.length)
-        ? 'ACCEPTED'
-        : 'PARTIALLY_ACCEPTED';
+    const existingAgenda = new Set(db.select({ title: eventSchedules.title, date: eventSchedules.date })
+      .from(eventSchedules).where(eq(eventSchedules.eventId, eventId)).all()
+      .map((item) => `${item.date}:${item.title.trim().toLowerCase()}`));
+    for (const block of agendaToApply) {
+      const date = new Date(`${eventDetail.event.startDate}T00:00:00Z`);
+      date.setUTCDate(date.getUTCDate() + block.dayNumber - 1);
+      const dateIso = date.toISOString().slice(0, 10);
+      const key = `${dateIso}:${block.title.trim().toLowerCase()}`;
+      if (existingAgenda.has(key)) continue;
+      db.insert(eventSchedules).values({
+        id: `sch_${crypto.randomUUID()}`, eventId, dayNumber: block.dayNumber,
+        date: dateIso, title: block.title,
+        description: `${block.timeWindow ? `${block.timeWindow} — ` : ''}${block.description}`,
+        isAllDay: false, sortOrder: block.dayNumber, isAiSuggested: true,
+        createdAt: now, updatedAt: now,
+      }).run();
+      existingAgenda.add(key);
+      appliedAgendaCount++;
+    }
 
+    const existingVendors = new Set(db.select({ title: vendorRequirements.title })
+      .from(vendorRequirements).where(eq(vendorRequirements.eventId, eventId)).all()
+      .map((item) => item.title.trim().toLowerCase()));
+    for (const vendor of vendorsToApply) {
+      const key = vendor.title.trim().toLowerCase();
+      if (existingVendors.has(key)) continue;
+      const criteria = vendor.comparisonCriteria.length
+        ? `\nCompare: ${vendor.comparisonCriteria.join('; ')}` : '';
+      db.insert(vendorRequirements).values({
+        id: `req_${crypto.randomUUID()}`, eventId, category: vendor.category,
+        title: vendor.title, specifications: `${vendor.specifications}${criteria}`,
+        targetBudgetPaise: 0, status: 'OPEN', createdAt: now, updatedAt: now,
+      }).run();
+      existingVendors.add(key);
+      appliedVendorCount++;
+    }
+
+    // 3. Mark suggestion status
     db.update(aiPlanSuggestions)
       .set({
         status: newStatus,
@@ -249,6 +346,8 @@ export async function applyPlanReview(
           appliedAt: now,
           appliedCategoriesCount,
           appliedTasksCount,
+          appliedAgendaCount,
+          appliedVendorCount,
         }),
         updatedAt: now,
       })
@@ -260,7 +359,10 @@ export async function applyPlanReview(
 
   return {
     success: true,
+    status: finalStatus,
     appliedCategoriesCount,
     appliedTasksCount,
+    appliedAgendaCount,
+    appliedVendorCount,
   };
 }

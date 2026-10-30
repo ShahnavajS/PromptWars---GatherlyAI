@@ -80,7 +80,7 @@ describe('Cultural Customization & Regional Presets (Unit & Service)', () => {
       // 1. Initial preferences seeded automatically
       const initialPrefs = await getPreferences(eventId, userId);
       expect(initialPrefs).not.toBeNull();
-      expect(initialPrefs?.culturalPreset).toBe('GUJARATI'); // seeded default for WEDDING in Gujarat
+      expect(initialPrefs?.culturalPreset).toBe('MODERN');
 
       // 2. Update preferences
       const updated = await updatePreferences(eventId, userId, {

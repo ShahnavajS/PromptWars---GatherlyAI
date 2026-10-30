@@ -39,6 +39,14 @@ interface VendorQuote {
   confirmedCommitment: boolean;
 }
 
+interface Requirement {
+  id: string;
+  category: string;
+  title: string;
+  specifications: string;
+  status: 'OPEN' | 'QUOTES_RECEIVED' | 'AWARDED' | 'CANCELLED';
+}
+
 interface BudgetCategory {
   id: string;
   name: string;
@@ -77,6 +85,7 @@ const STATUS_COLORS: Record<string, string> = {
 export default function VendorHub({ eventId, categories }: VendorHubProps) {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [quotes, setQuotes] = useState<VendorQuote[]>([]);
+  const [requirements, setRequirements] = useState<Requirement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedVendorId, setExpandedVendorId] = useState<string | null>(null);
@@ -115,14 +124,16 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
 
   const fetchData = async () => {
     try {
-      const [vRes, qRes] = await Promise.all([
+      const [vRes, qRes, rRes] = await Promise.all([
         fetch(`/api/events/${eventId}/vendors`),
         fetch(`/api/events/${eventId}/quotes`),
+        fetch(`/api/events/${eventId}/requirements`),
       ]);
-      const [vJson, qJson] = await Promise.all([vRes.json(), qRes.json()]);
+      const [vJson, qJson, rJson] = await Promise.all([vRes.json(), qRes.json(), rRes.json()]);
 
       if (vJson.success) setVendors(vJson.data);
       if (qJson.success) setQuotes(qJson.data);
+      if (rJson.success) setRequirements(rJson.data);
     } catch {
       setError('Failed to load vendor data.');
     } finally {
@@ -134,15 +145,17 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
     let ignore = false;
     const load = async () => {
       try {
-        const [vRes, qRes] = await Promise.all([
+        const [vRes, qRes, rRes] = await Promise.all([
           fetch(`/api/events/${eventId}/vendors`),
           fetch(`/api/events/${eventId}/quotes`),
+          fetch(`/api/events/${eventId}/requirements`),
         ]);
-        const [vJson, qJson] = await Promise.all([vRes.json(), qRes.json()]);
+        const [vJson, qJson, rJson] = await Promise.all([vRes.json(), qRes.json(), rRes.json()]);
 
         if (ignore) return;
         if (vJson.success) setVendors(vJson.data);
         if (qJson.success) setQuotes(qJson.data);
+        if (rJson.success) setRequirements(rJson.data);
       } catch {
         if (!ignore) setError('Failed to load vendor data.');
       } finally {
@@ -154,6 +167,18 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
       ignore = true;
     };
   }, [eventId]);
+
+  async function updateRequirement(requirementId: string, status: Requirement['status']) {
+    const response = await fetch(`/api/events/${eventId}/requirements`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requirementId, status }),
+    });
+    if (response.ok) {
+      setRequirements((current) => current.map((item) => item.id === requirementId ? { ...item, status } : item));
+    } else {
+      setError('Could not update vendor checklist.');
+    }
+  }
 
   const handleUploadQuotationPdf = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -363,20 +388,42 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
           eventId={eventId}
           onSaved={() => {
             fetchData();
-            showToast('Verified quotation saved! 🎉');
+            showToast('Quotation saved.');
           }}
           onClose={() => setExtractedCandidate(null)}
         />
       )}
 
-      <div className="rounded-3xl border border-amber-200/80 bg-white p-6 shadow-sm">
+      {requirements.length > 0 && (
+        <section className="surface-card p-6" aria-labelledby="requirements-heading">
+          <h2 id="requirements-heading" className="text-lg font-bold text-slate-900">Vendor Checklist</h2>
+          <p className="mt-1 text-xs text-slate-500">Requirements adopted from your reviewed plan. Track sourcing and award decisions.</p>
+          <div className="mt-4 space-y-3">
+            {requirements.map((requirement) => (
+              <div key={requirement.id} className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 sm:flex-row sm:items-start sm:justify-between">
+                <div><h3 className="text-sm font-semibold text-slate-900">{requirement.title} · {requirement.category}</h3>
+                  <p className="whitespace-pre-line text-xs text-slate-600">{requirement.specifications}</p></div>
+                <label className="text-xs font-medium text-slate-700">Status
+                  <select value={requirement.status} onChange={(event) => updateRequirement(requirement.id, event.target.value as Requirement['status'])}
+                    className="ml-2 rounded-lg border border-slate-300 bg-white px-2 py-1.5">
+                    <option value="OPEN">Open</option><option value="QUOTES_RECEIVED">Quotes received</option>
+                    <option value="AWARDED">Awarded</option><option value="CANCELLED">Cancelled</option>
+                  </select>
+                </label>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="surface-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-amber-100 pb-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">Vendor Hub</h2>
             <p className="text-xs text-slate-500">{vendors.length} vendors • {quotes.length} quotations recorded</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <label className="cursor-pointer rounded-xl border border-orange-300 bg-orange-50 px-3.5 py-2 text-xs font-bold text-orange-900 hover:bg-orange-100 flex items-center gap-1.5 transition-colors">
+            <label className="cursor-pointer rounded-xl border border-[#b8cbb6] bg-[#e8efe5] px-3.5 py-2 text-xs font-bold text-[#263b34] hover:bg-[#e8efe5] flex items-center gap-1.5 transition-colors focus-within:ring-2 focus-within:ring-[#285942]">
               <span>📄</span>
               <span>{uploadingDoc ? 'Extracting PDF...' : 'Upload Quotation PDF'}</span>
               <input
@@ -384,12 +431,12 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                 accept="application/pdf"
                 disabled={uploadingDoc}
                 onChange={handleUploadQuotationPdf}
-                className="hidden"
+                className="sr-only"
               />
             </label>
             <button
               onClick={() => setShowAddVendor(true)}
-              className="rounded-xl bg-orange-600 px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-orange-500"
+              className="rounded-xl bg-[#285942] px-4 py-2 text-xs sm:text-sm font-bold text-white hover:bg-[#1e4734]"
             >
               + Add Vendor
             </button>
@@ -398,25 +445,27 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
 
         {/* Add Vendor Form */}
         {showAddVendor && (
-          <div className="mb-6 rounded-2xl border border-orange-200 bg-orange-50/40 p-5 space-y-4">
+          <div className="mb-6 rounded-2xl border border-[#d5e1d3] bg-[#e8efe5]/40 p-5 space-y-4">
             <h3 className="text-sm font-bold text-slate-800">New Vendor</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Name *</label>
                 <input
+                  aria-label="Vendor name"
                   type="text"
                   value={vendorForm.name}
                   onChange={(e) => setVendorForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="Vendor / company name"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Category</label>
                 <select
+                  aria-label="Vendor category"
                   value={vendorForm.category}
                   onChange={(e) => setVendorForm((f) => ({ ...f, category: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                 >
                   {VENDOR_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -424,46 +473,51 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Contact Name</label>
                 <input
+                  aria-label="Vendor contact name"
                   type="text"
                   value={vendorForm.contactName}
                   onChange={(e) => setVendorForm((f) => ({ ...f, contactName: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Phone</label>
                 <input
+                  aria-label="Vendor phone"
                   type="text"
                   value={vendorForm.contactPhone}
                   onChange={(e) => setVendorForm((f) => ({ ...f, contactPhone: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Email</label>
                 <input
+                  aria-label="Vendor email"
                   type="email"
                   value={vendorForm.contactEmail}
                   onChange={(e) => setVendorForm((f) => ({ ...f, contactEmail: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                 />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">City</label>
                 <input
+                  aria-label="Vendor city"
                   type="text"
                   value={vendorForm.city}
                   onChange={(e) => setVendorForm((f) => ({ ...f, city: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                 />
               </div>
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-slate-700 mb-1">Notes</label>
                 <textarea
+                  aria-label="Vendor notes"
                   rows={2}
                   value={vendorForm.notes}
                   onChange={(e) => setVendorForm((f) => ({ ...f, notes: e.target.value }))}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                 />
               </div>
             </div>
@@ -471,7 +525,7 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
               <button
                 onClick={handleAddVendor}
                 disabled={saving}
-                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-bold text-white hover:bg-orange-500 disabled:opacity-50"
+                className="rounded-lg bg-[#285942] px-4 py-2 text-sm font-bold text-white hover:bg-[#1e4734] disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Add Vendor'}
               </button>
@@ -487,9 +541,8 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
 
         {vendors.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50/40 p-12 text-center">
-            <div className="text-4xl mb-3">🏪</div>
-            <p className="font-bold text-slate-700">No vendors yet</p>
-            <p className="text-sm text-slate-500 mt-1">Add vendors to compare quotes and manage commitments.</p>
+            <p className="font-editorial text-3xl text-[#263b34]">Your vendor list starts here.</p>
+            <p className="text-sm text-slate-500 mt-2">Add a vendor when you are ready to compare quotes and keep decisions together.</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -498,7 +551,7 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-lg">{CATEGORY_EMOJIS[cat] ?? '📦'}</span>
                   <span className="font-bold text-slate-800 text-sm">{cat}</span>
-                  <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[11px] font-bold text-orange-800">
+                  <span className="rounded-full bg-[#e8efe5] px-2 py-0.5 text-xs font-bold text-[#285942]">
                     {byCategory.get(cat)?.length ?? 0}
                   </span>
                 </div>
@@ -515,11 +568,15 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                         className="rounded-2xl border border-slate-200 bg-white overflow-hidden"
                       >
                         {/* Vendor Card Header */}
-                        <div
-                          className="flex items-center justify-between p-4 cursor-pointer hover:bg-amber-50/30"
-                          onClick={() => setExpandedVendorId(isExpanded ? null : vendor.id)}
-                        >
-                          <div className="flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-amber-50/30">
+                          <button
+                            type="button"
+                            aria-expanded={isExpanded}
+                            aria-controls={'vendor-details-' + vendor.id}
+                            onClick={() => setExpandedVendorId(isExpanded ? null : vendor.id)}
+                            className="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-lg text-left"
+                          >
+                          <span className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-slate-900 text-sm">{vendor.name}</span>
                               {vendor.city && (
@@ -530,7 +587,7 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                               {vendor.contactName && <span>👤 {vendor.contactName}</span>}
                               {vendor.contactPhone && <span>📞 {vendor.contactPhone}</span>}
                               {summary ? (
-                                <span className="font-semibold text-orange-700">
+                                <span className="font-semibold text-[#285942]">
                                   {summary.count} quote{summary.count > 1 ? 's' : ''} •{' '}
                                   {formatINR(summary.min)}
                                   {summary.count > 1 ? ` – ${formatINR(summary.max)}` : ''}
@@ -539,35 +596,30 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                                 <span className="text-slate-400">No quotes</span>
                               )}
                             </div>
-                          </div>
+                          </span>
+                          <span aria-hidden="true" className="text-slate-500">{isExpanded ? '▲' : '▼'}</span>
+                          </button>
                           <div className="flex items-center gap-2 shrink-0">
                             {vendorQuotes.length >= 2 && (
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setComparisonVendor(vendor);
-                                }}
+                                onClick={() => setComparisonVendor(vendor)}
                                 className="rounded-xl border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-bold text-blue-800 hover:bg-blue-100"
                               >
                                 Compare Quotes
                               </button>
                             )}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteVendor(vendor.id);
-                              }}
+                              onClick={() => handleDeleteVendor(vendor.id)}
                               className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold text-red-700 hover:bg-red-100"
                             >
                               Delete
                             </button>
-                            <span className="text-slate-400">{isExpanded ? '▲' : '▼'}</span>
                           </div>
                         </div>
 
                         {/* Expanded Section */}
                         {isExpanded && (
-                          <div className="border-t border-amber-100 p-4 space-y-4 bg-amber-50/20">
+                          <div id={'vendor-details-' + vendor.id} className="border-t border-amber-100 p-4 space-y-4 bg-amber-50/20">
                             {/* Quotes list */}
                             {vendorQuotes.length === 0 ? (
                               <p className="text-sm text-slate-500">No quotes yet.</p>
@@ -581,22 +633,22 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <span className="font-bold text-sm text-slate-900">{q.quoteTitle}</span>
-                                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${STATUS_COLORS[q.status] ?? 'bg-slate-100 text-slate-700'}`}>
+                                        <span className={`rounded px-1.5 py-0.5 text-xs font-bold ${STATUS_COLORS[q.status] ?? 'bg-slate-100 text-slate-700'}`}>
                                           {q.status}
                                         </span>
                                         {q.confirmedCommitment && (
-                                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                                          <span className="rounded-full bg-emerald-100 px-1.5 py-0.5 text-xs font-bold text-emerald-800">
                                             ✓ Confirmed
                                           </span>
                                         )}
                                         {q.isExtractedByAi && (
-                                          <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] font-bold text-purple-800" title={`Extracted from ${q.sourceDocumentName || 'uploaded PDF'}`}>
+                                          <span className="rounded-full bg-purple-100 px-1.5 py-0.5 text-xs font-bold text-purple-800" title={`Extracted from ${q.sourceDocumentName || 'uploaded PDF'}`}>
                                             📄 Extracted PDF
                                           </span>
                                         )}
                                       </div>
                                       <div className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
-                                        <span className="font-bold text-orange-900">{formatINR(q.quotedAmountPaise)}</span>
+                                        <span className="font-bold text-[#263b34]">{formatINR(q.quotedAmountPaise)}</span>
                                         <span>{q.quoteDate}</span>
                                         {q.inclusionsJson && (
                                           <span>
@@ -612,63 +664,69 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
 
                             {/* Add Quote Form */}
                             {addingQuoteForVendor === vendor.id ? (
-                              <div className="rounded-2xl border border-orange-200 bg-white p-4 space-y-3">
+                              <div className="rounded-2xl border border-[#d5e1d3] bg-white p-4 space-y-3">
                                 <h4 className="text-sm font-bold text-slate-800">Add Quote</h4>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-1">Quote Title *</label>
                                     <input
+                                      aria-label="Quote title"
                                       type="text"
                                       value={quoteForm.quoteTitle}
                                       onChange={(e) => setQuoteForm((f) => ({ ...f, quoteTitle: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                                     />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-1">Amount (₹) *</label>
                                     <input
+                                      aria-label="Quote amount in rupees"
                                       type="number"
                                       min={0}
                                       value={quoteForm.quotedAmountRupees}
                                       onChange={(e) => setQuoteForm((f) => ({ ...f, quotedAmountRupees: e.target.value }))}
                                       placeholder="0"
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                                     />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-1">Date *</label>
                                     <input
+                                      aria-label="Quote date"
                                       type="date"
                                       value={quoteForm.quoteDate}
                                       onChange={(e) => setQuoteForm((f) => ({ ...f, quoteDate: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                                     />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-1">Cancellation Policy</label>
                                     <input
+                                      aria-label="Quote cancellation policy"
                                       type="text"
                                       value={quoteForm.cancellationPolicy}
                                       onChange={(e) => setQuoteForm((f) => ({ ...f, cancellationPolicy: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                                     />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-1">Inclusions (one per line)</label>
                                     <textarea
+                                      aria-label="Quote inclusions, one per line"
                                       rows={3}
                                       value={quoteForm.inclusions}
                                       onChange={(e) => setQuoteForm((f) => ({ ...f, inclusions: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                                     />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold text-slate-700 mb-1">Exclusions (one per line)</label>
                                     <textarea
+                                      aria-label="Quote exclusions, one per line"
                                       rows={3}
                                       value={quoteForm.exclusions}
                                       onChange={(e) => setQuoteForm((f) => ({ ...f, exclusions: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                                     />
                                   </div>
                                 </div>
@@ -676,7 +734,7 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                                   <button
                                     onClick={() => handleAddQuote(vendor.id)}
                                     disabled={saving}
-                                    className="rounded-lg bg-orange-600 px-3 py-2 text-xs font-bold text-white hover:bg-orange-500 disabled:opacity-50"
+                                    className="rounded-lg bg-[#285942] px-3 py-2 text-xs font-bold text-white hover:bg-[#1e4734] disabled:opacity-50"
                                   >
                                     {saving ? 'Saving...' : 'Add Quote'}
                                   </button>

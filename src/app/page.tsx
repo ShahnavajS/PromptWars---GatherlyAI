@@ -1,284 +1,170 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { EventListItem } from '@/lib/services/eventService';
 import { formatCompactINR, formatDate, calculateDaysRemaining } from '@/lib/domain/formatting';
+
+const occasions = [
+  { name: 'Weddings', type: 'WEDDING', line: 'A day that feels entirely like you.', tone: 'bg-[#f1ddd5]', accent: 'text-[#8c4737]', mark: '01' },
+  { name: 'Birthdays', type: 'BIRTHDAY', line: 'Make another trip around the sun count.', tone: 'bg-[#f5e9c8]', accent: 'text-[#735b28]', mark: '02' },
+  { name: 'Community', type: 'COMMUNITY', line: 'Bring people together for something bigger.', tone: 'bg-[#dceade]', accent: 'text-[#315947]', mark: '03' },
+];
+const eventTones: Record<string, string> = {
+  WEDDING: 'bg-[#f7e6e1] text-[#8f4938]',
+  BIRTHDAY: 'bg-[#f6edd2] text-[#76592f]',
+  COMMUNITY: 'bg-[#e2eee4] text-[#285942]',
+  CELEBRATION: 'bg-[#eae5f2] text-[#624f77]',
+};
 
 export default function HomePage() {
   const router = useRouter();
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [seedingDemo, setSeedingDemo] = useState(false);
 
   useEffect(() => {
     let ignore = false;
-
-    fetch('/api/events')
-      .then((res) => res.json())
-      .then((data) => {
+    fetch('/api/auth/session', { cache: 'no-store' })
+      .then((response) => {
+        if (!response.ok) return null;
+        return fetch('/api/events', { cache: 'no-store' }).then((eventsResponse) => eventsResponse.json());
+      })
+      .then((result) => {
         if (ignore) return;
-        if (data.success) {
-          setEvents(data.events);
-        } else {
-          setError(data.error || 'Failed to load events.');
-        }
+        if (!result) return;
+        setSignedIn(true);
+        if (result.success) setEvents(result.events);
+        else setError(result.error || 'Your events could not be loaded.');
       })
-      .catch(() => {
-        if (!ignore) {
-          setError('Could not connect to event service.');
-        }
-      })
-      .finally(() => {
-        if (!ignore) {
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      ignore = true;
-    };
+      .catch(() => { if (!ignore) setError('Your events could not be loaded.'); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
   }, []);
 
-  const handleCreateDemoEvent = async () => {
+  async function createSample() {
+    if (!signedIn) { router.push('/sign-in?next=%2F'); return; }
+    setSeedingDemo(true);
+    setError(null);
+    const start = new Date();
+    start.setUTCDate(start.getUTCDate() + 30);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 2);
     try {
-      setSeedingDemo(true);
-      const demoPayload = {
-        title: "Priya & Rohan's Gujarati Wedding",
-        eventType: 'WEDDING',
-        startDate: '2026-11-20',
-        endDate: '2026-11-22',
-        venueCity: 'Ahmedabad',
-        venueName: 'The Grand Bhagwati',
-        targetGuestCount: 250,
-        totalBudgetRupees: 1500000,
-        timezone: 'Asia/Kolkata',
-      };
-
-      const res = await fetch('/api/events', {
+      const response = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(demoPayload),
+        body: JSON.stringify({
+          title: "Priya & Rohan's Gujarati Wedding",
+          eventType: 'WEDDING',
+          startDate: start.toISOString().slice(0, 10),
+          endDate: end.toISOString().slice(0, 10),
+          venueCity: 'Ahmedabad',
+          venueName: 'The Grand Bhagwati',
+          targetGuestCount: 250,
+          totalBudgetRupees: 1500000,
+          timezone: 'Asia/Kolkata',
+          culturalPreset: 'GUJARATI',
+          dietaryPreference: 'PURE_VEG',
+        }),
       });
-
-      const data = await res.json();
-      if (data.success && data.data?.event?.id) {
-        router.push(`/events/${data.data.event.id}`);
-      } else {
-        setError(data.error || 'Failed to seed sample event.');
-      }
+      const result = await response.json();
+      if (result.success && result.data?.event?.id) router.push('/events/' + result.data.event.id);
+      else setError(result.error || 'The sample event could not be created.');
     } catch {
-      setError('Error creating sample event.');
+      setError('The sample event could not be created.');
     } finally {
       setSeedingDemo(false);
     }
-  };
-
-  const getBadgeStyle = (type: string) => {
-    switch (type.toUpperCase()) {
-      case 'WEDDING':
-        return 'bg-rose-100 text-rose-800 border-rose-200';
-      case 'BIRTHDAY':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      case 'COMMUNITY':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      default:
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-    }
-  };
+  }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Hero Welcome Banner */}
-      <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 via-orange-50/60 to-rose-50 border border-amber-200/80 p-8 sm:p-12 shadow-sm mb-10">
-        <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 rounded-full bg-orange-100/80 px-3 py-1 text-xs font-semibold text-orange-800 border border-orange-200 mb-4">
-            <span>🎉</span>
-            <span>Connected & Deterministic Event Planning</span>
+    <div>
+      <section className="page-wrap relative mt-4 min-h-[560px] overflow-hidden rounded-[28px] bg-[#eee7d9] sm:mt-6 sm:min-h-[630px]">
+        <Image src="/images/gatherly-celebration.webp" alt="" fill priority sizes="(max-width: 700px) 100vw, 1240px" className="hero-image" />
+        <div className="hero-wash absolute inset-0" />
+        <div className="hero-enter relative z-10 flex min-h-[560px] max-w-[670px] flex-col justify-center px-6 py-16 sm:min-h-[630px] sm:px-12 lg:px-16">
+          <p className="eyebrow">For every reason to gather</p>
+          <h1 className="font-editorial mt-6 text-[clamp(3.4rem,6.6vw,6.7rem)] leading-[.98] tracking-[-.065em] text-[#263b34]">Make more room for the moments.</h1>
+          <p className="mt-7 max-w-[490px] text-base leading-7 text-[#3d5347] sm:text-lg">Weddings, birthdays, community days and all the little milestones between. Turn a lovely idea into a plan you can actually enjoy.</p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Link href="/events/new" className="button-primary px-6">Start planning <span aria-hidden="true">↗</span></Link>
+            <a href="#how-it-works" className="button-secondary px-6">See how it works</a>
           </div>
-          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-slate-900 leading-tight">
-            Plan smarter. Spend wisely. <br className="hidden sm:inline" />
-            <span className="text-orange-600">Bring everyone together.</span>
-          </h1>
-          <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed">
-            Turn your event idea into an organized, mathematically exact, and editable workspace.
-            Track budgets in integer paise, coordinate multi-day timelines, and stay in complete control.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-4">
-            <Link
-              href="/events/new"
-              className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-6 py-3.5 text-base font-bold text-white shadow-md shadow-orange-600/20 hover:bg-orange-500 active:bg-orange-700 transition-all focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
-            >
-              <span>+</span>
-              <span>Create New Event</span>
-            </Link>
-
-            <button
-              onClick={handleCreateDemoEvent}
-              disabled={seedingDemo}
-              className="inline-flex items-center gap-2 rounded-xl bg-white border border-amber-300 px-5 py-3.5 text-base font-semibold text-slate-800 hover:bg-amber-50 active:bg-amber-100 transition-all shadow-sm disabled:opacity-60"
-            >
-              <span>{seedingDemo ? 'Creating...' : '⚡ Quick Demo: Gujarati Wedding'}</span>
-            </button>
-          </div>
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[.12em] text-[#596860]">Your ideas · Your budget · Your way</p>
         </div>
-
-        {/* Decorative background glow */}
-        <div className="absolute -right-12 -bottom-12 h-64 w-64 rounded-full bg-gradient-to-tr from-orange-300/30 to-amber-200/40 blur-3xl" />
       </section>
 
-      {/* Events Workspace Section */}
-      <section>
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Your Planning Workspaces</h2>
-            <p className="text-sm text-slate-500">
-              Active events with live budget allocation and task progress.
-            </p>
-          </div>
-          <Link
-            href="/events/new"
-            className="text-sm font-semibold text-orange-600 hover:text-orange-700 flex items-center gap-1"
-          >
-            + New Event
-          </Link>
+      <section id="how-it-works" className="page-wrap scroll-mt-28 py-20 sm:py-24">
+        <div className="grid gap-10 lg:grid-cols-[.9fr_1.1fr] lg:items-end">
+          <div><p className="eyebrow">Thoughtful from the first idea</p><h2 className="font-editorial mt-3 max-w-xl text-4xl leading-tight tracking-[-.045em] sm:text-5xl">The details belong together.</h2></div>
+          <p className="max-w-xl text-base leading-7 text-[#596860]">Start with what matters to you. Gatherly helps shape a budget, a to-do list, a day-of timeline and vendor needs in one calm place. AI ideas stay yours to review and change.</p>
         </div>
+        <div className="mt-11 grid gap-4 md:grid-cols-3">
+          {[
+            ['01', 'Tell us the occasion', 'Add a date, place, guest count and the budget you want to work with.'],
+            ['02', 'Find your rhythm', 'See starter tasks and allocations, then ask for ideas tailored to your event.'],
+            ['03', 'Make it yours', 'Review every suggestion before it joins your plan. Adjust as life changes.'],
+          ].map(([number, title, description]) => (
+            <div key={number} className="surface-card p-6 sm:p-7">
+              <span className="font-editorial text-4xl text-[#9e4b35]">{number}</span>
+              <h3 className="mt-7 text-lg font-bold text-[#263b34]">{title}</h3>
+              <p className="mt-2 text-sm leading-6 text-[#596860]">{description}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        {error && (
-          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-            {error}
+      <section className="bg-[#e9eee4] py-20 sm:py-24">
+        <div className="page-wrap">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+            <div><p className="eyebrow">One place, many celebrations</p><h2 className="font-editorial mt-3 text-4xl tracking-[-.045em] sm:text-5xl">Whatever brings you together.</h2></div>
+            <Link href="/events/new" className="button-text self-start">Plan your occasion <span aria-hidden="true">↗</span></Link>
           </div>
-        )}
-
-        {loading ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="h-64 animate-pulse rounded-2xl border border-amber-200/60 bg-amber-50/40 p-6"
-              />
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {occasions.map((occasion) => (
+              <Link key={occasion.name} href={'/events/new?type=' + occasion.type} className={'event-card flex min-h-[270px] flex-col justify-between rounded-[24px] p-7 ' + occasion.tone}>
+                <span className={'font-editorial text-5xl opacity-60 ' + occasion.accent} aria-hidden="true">{occasion.mark}</span>
+                <div><h3 className="font-editorial text-3xl tracking-[-.04em]">{occasion.name}</h3><p className="mt-2 max-w-[240px] text-sm leading-6">{occasion.line}</p><span className="mt-5 inline-block border-b border-current pb-1 text-sm font-bold">Explore planning ↗</span></div>
+              </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section id="my-events" className="page-wrap scroll-mt-28 py-20 sm:py-24" aria-labelledby="my-events-title">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div><p className="eyebrow">Your planning space</p><h2 id="my-events-title" className="font-editorial mt-3 text-4xl tracking-[-.045em] sm:text-5xl">Your events</h2><p className="mt-2 text-sm text-[#596860]">Pick up right where you left off.</p></div>
+          <Link href="/events/new" className="button-secondary">＋ New event</Link>
+        </div>
+        {error && <div role="alert" className="mt-8 rounded-xl border border-[#d8a597] bg-[#fff3ee] p-4 text-sm text-[#7d3b2d]">{error}</div>}
+        {loading ? (
+          <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3" aria-label="Loading events">{[1, 2, 3].map((item) => <div key={item} className="surface-card h-64 animate-pulse bg-[#e9eee4]" />)}</div>
+        ) : !signedIn ? (
+          <div className="surface-card mt-8 grid gap-6 p-8 sm:grid-cols-[1fr_auto] sm:items-center sm:p-10">
+            <div><span className="eyebrow">A private planning space</span><h3 className="font-editorial mt-2 text-3xl">Your events are yours to see.</h3><p className="mt-3 max-w-xl text-sm leading-6 text-[#596860]">Sign in to open your plans, or create an account to start a new one.</p></div>
+            <Link href="/sign-in" className="button-primary">Sign in to your events</Link>
+          </div>
         ) : events.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-amber-300/80 bg-amber-50/20 p-12 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-100 text-3xl">
-              🎈
-            </div>
-            <h3 className="mt-4 text-xl font-bold text-slate-800">No events planned yet</h3>
-            <p className="mt-2 text-sm text-slate-500 max-w-md mx-auto">
-              Ready to start? Plan a wedding, milestone birthday, or community festival in minutes with
-              deterministic budget calculations.
-            </p>
-            <div className="mt-6 flex justify-center gap-3">
-              <Link
-                href="/events/new"
-                className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow hover:bg-orange-500"
-              >
-                Create Event
-              </Link>
-              <button
-                onClick={handleCreateDemoEvent}
-                disabled={seedingDemo}
-                className="rounded-xl border border-amber-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-amber-50"
-              >
-                Seed Sample Gujarati Wedding
-              </button>
-            </div>
+          <div className="surface-card mt-8 grid gap-6 p-8 sm:grid-cols-[1fr_auto] sm:items-center sm:p-10">
+            <div><span className="eyebrow">A fresh page</span><h3 className="font-editorial mt-2 text-3xl">Every great gathering starts somewhere.</h3><p className="mt-3 max-w-xl text-sm leading-6 text-[#596860]">Add your first event to see its budget and checklist. Want to look around first? Create a clearly marked sample wedding in your workspace.</p></div>
+            <div className="flex flex-col gap-3"><Link href="/events/new" className="button-primary">Create an event</Link><button type="button" onClick={createSample} disabled={seedingDemo} className="button-secondary">{seedingDemo ? 'Creating sample…' : 'Create sample wedding'}</button></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {events.map((ev) => {
-              const countdown = calculateDaysRemaining(ev.startDate);
-              const allocatedPercent =
-                ev.totalBudgetPaise > 0
-                  ? Math.min(100, Math.round((ev.allocatedTotalPaise / ev.totalBudgetPaise) * 100))
-                  : 0;
-
+          <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {events.map((event) => {
+              const percent = event.totalBudgetPaise > 0 ? Math.min(100, Math.round(event.allocatedTotalPaise / event.totalBudgetPaise * 100)) : 0;
               return (
-                <div
-                  key={ev.id}
-                  className="group relative flex flex-col justify-between rounded-2xl border border-amber-200/80 bg-white p-6 shadow-sm transition-all hover:border-orange-400 hover:shadow-md"
-                >
-                  <div>
-                    {/* Header: Badges */}
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <span
-                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${getBadgeStyle(
-                          ev.eventType
-                        )}`}
-                      >
-                        {ev.eventType}
-                      </span>
-                      <span className="text-xs font-medium text-slate-500 bg-slate-100 rounded-md px-2 py-0.5">
-                        {countdown.label}
-                      </span>
-                    </div>
-
-                    {/* Title */}
-                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-orange-600 transition-colors line-clamp-1">
-                      {ev.title}
-                    </h3>
-
-                    {/* Meta info */}
-                    <div className="mt-2 space-y-1 text-xs text-slate-500">
-                      <p className="flex items-center gap-1.5">
-                        <span>📍</span>
-                        <span>{ev.venueCity}</span>
-                        {ev.targetGuestCount > 0 && <span>• {ev.targetGuestCount} guests</span>}
-                      </p>
-                      <p className="flex items-center gap-1.5">
-                        <span>📅</span>
-                        <span>
-                          {formatDate(ev.startDate, { format: 'short' })}
-                          {ev.endDate ? ` – ${formatDate(ev.endDate, { format: 'short' })}` : ''}
-                        </span>
-                      </p>
-                    </div>
-
-                    {/* Budget Overview */}
-                    <div className="mt-5 border-t border-amber-100 pt-4">
-                      <div className="flex justify-between text-xs mb-1.5">
-                        <span className="text-slate-500 font-medium">Budget Allocated</span>
-                        <span className="font-bold text-slate-800">
-                          {formatCompactINR(ev.allocatedTotalPaise)} / {formatCompactINR(ev.totalBudgetPaise)}
-                        </span>
-                      </div>
-                      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                        <div
-                          className={`h-full rounded-full transition-all ${
-                            allocatedPercent > 100
-                              ? 'bg-red-500'
-                              : allocatedPercent >= 80
-                              ? 'bg-amber-500'
-                              : 'bg-orange-500'
-                          }`}
-                          style={{ width: `${Math.min(100, allocatedPercent)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Task progress */}
-                    <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                      <span>Tasks:</span>
-                      <span className="font-semibold text-slate-700">
-                        {ev.completedTasksCount} of {ev.totalTasksCount} done
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="mt-6 border-t border-amber-100 pt-4">
-                    <Link
-                      href={`/events/${ev.id}`}
-                      className="block w-full rounded-xl bg-orange-50 px-4 py-2.5 text-center text-sm font-bold text-orange-700 hover:bg-orange-600 hover:text-white transition-colors"
-                    >
-                      Open Event Workspace →
-                    </Link>
-                  </div>
-                </div>
+                <Link key={event.id} href={'/events/' + event.id} className="event-card surface-card group flex min-h-[290px] flex-col p-6">
+                  <div className="flex items-center justify-between gap-2"><span className={'rounded-full px-3 py-1 text-xs font-bold ' + (eventTones[event.eventType] || eventTones.CELEBRATION)}>{event.eventType.toLowerCase()}</span><span className="text-xs font-semibold text-[#596860]">{calculateDaysRemaining(event.startDate).label}</span></div>
+                  <h3 className="font-editorial mt-7 text-[1.8rem] leading-tight tracking-[-.035em] group-hover:text-[#285942]">{event.title}</h3>
+                  <p className="mt-3 text-sm text-[#596860]">{formatDate(event.startDate, { format: 'short' })}{event.endDate ? ' – ' + formatDate(event.endDate, { format: 'short' }) : ''} <span aria-hidden="true">·</span> {event.venueCity}</p>
+                  <div className="mt-auto pt-7"><div className="mb-2 flex justify-between gap-2 text-xs font-semibold text-[#596860]"><span>Budget planned</span><span className="metric-number">{formatCompactINR(event.allocatedTotalPaise)} / {formatCompactINR(event.totalBudgetPaise)}</span></div><div role="progressbar" aria-label="Budget allocated" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100} className="h-2 overflow-hidden rounded-full bg-[#e3e8dc]"><div className="h-full rounded-full bg-[#285942]" style={{ width: percent + '%' }} /></div><p className="mt-4 text-xs text-[#596860]">{event.completedTasksCount} of {event.totalTasksCount} tasks complete <span className="float-right font-bold text-[#285942]">Open plan ↗</span></p></div>
+                </Link>
               );
             })}
           </div>

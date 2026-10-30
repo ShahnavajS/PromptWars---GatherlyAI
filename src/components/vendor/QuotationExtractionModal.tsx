@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ExtractedQuotationCandidate } from '@/lib/services/quotationExtractionService';
 
 interface Vendor {
@@ -70,17 +70,37 @@ export default function QuotationExtractionModal({
   const [notes, setNotes] = useState(candidate.notes.value || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.querySelector<HTMLElement>('button')?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCloseRef.current();
+      if (event.key !== 'Tab') return;
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button, input, select, textarea, [href]');
+      if (!focusable?.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); previous?.focus(); };
+  }, []);
 
   const renderProvenanceBadge = (status: 'EXTRACTED' | 'NOT_PROVIDED' | 'USER_CONFIRMED') => {
     if (status === 'EXTRACTED') {
       return (
-        <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+        <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-bold text-emerald-800">
           ✓ Extracted
         </span>
       );
     }
     return (
-      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">
         — Missing in Document
       </span>
     );
@@ -183,7 +203,7 @@ export default function QuotationExtractionModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="review-modal-title">
       <div className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
         {/* Header */}
         <div className="sticky top-0 bg-white rounded-t-3xl border-b border-amber-200 px-6 py-4 flex items-center justify-between z-10">
@@ -192,14 +212,14 @@ export default function QuotationExtractionModal({
               <h2 id="review-modal-title" className="text-lg font-bold text-slate-900">
                 Review Extracted Quotation
               </h2>
-              <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${
+              <span className={`rounded-md px-2 py-0.5 text-xs font-bold ${
                 candidate.extractionEngine === 'gemini'
-                  ? 'bg-orange-100 text-orange-800'
+                  ? 'bg-[#e8efe5] text-[#285942]'
                   : 'bg-slate-100 text-slate-700'
               }`}>
                 {candidate.extractionEngine === 'gemini' ? '✨ Gemini GenAI' : '📄 Heuristic Parser'}
               </span>
-              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-900">
                 Confidence: {candidate.confidence}
               </span>
             </div>
@@ -218,7 +238,7 @@ export default function QuotationExtractionModal({
         </div>
 
         {error && (
-          <div className="mx-6 mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-800">
+          <div role="alert" className="mx-6 mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-800">
             {error}
           </div>
         )}
@@ -239,7 +259,7 @@ export default function QuotationExtractionModal({
                       name="vendorMode"
                       checked={vendorMode === 'EXISTING'}
                       onChange={() => setVendorMode('EXISTING')}
-                      className="text-orange-600"
+                      className="text-[#285942]"
                     />
                     <span>Existing Vendor</span>
                   </label>
@@ -250,7 +270,7 @@ export default function QuotationExtractionModal({
                     name="vendorMode"
                     checked={vendorMode === 'NEW'}
                     onChange={() => setVendorMode('NEW')}
-                    className="text-orange-600"
+                    className="text-[#285942]"
                   />
                   <span>Create New Vendor</span>
                 </label>
@@ -259,9 +279,10 @@ export default function QuotationExtractionModal({
 
             {vendorMode === 'EXISTING' ? (
               <select
+                aria-label="Existing vendor"
                 value={selectedVendorId}
                 onChange={(e) => setSelectedVendorId(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               >
                 {vendors.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -273,18 +294,20 @@ export default function QuotationExtractionModal({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <input
+                    aria-label="New vendor name"
                     type="text"
                     value={newVendorName}
                     onChange={(e) => setNewVendorName(e.target.value)}
                     placeholder="New vendor name"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                   />
                 </div>
                 <div>
                   <select
+                    aria-label="New vendor category"
                     value={newVendorCategory}
                     onChange={(e) => setNewVendorCategory(e.target.value)}
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
                   >
                     {VENDOR_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
@@ -305,10 +328,11 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.quoteTitle.status)}
               </div>
               <input
+                aria-label="Quotation title"
                 type="text"
                 value={quoteTitle}
                 onChange={(e) => setQuoteTitle(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
 
@@ -318,13 +342,14 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.quotedAmountPaise.status)}
               </div>
               <input
+                aria-label="Quoted amount in rupees"
                 type="number"
                 min="0"
                 step="1"
                 value={amountRupees}
                 onChange={(e) => setAmountRupees(e.target.value)}
                 placeholder="Amount in Rupees"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
 
@@ -334,10 +359,11 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.quoteDate.status)}
               </div>
               <input
+                aria-label="Quote date"
                 type="date"
                 value={quoteDate}
                 onChange={(e) => setQuoteDate(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
 
@@ -347,10 +373,11 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.validUntilDate.status)}
               </div>
               <input
+                aria-label="Valid until date"
                 type="date"
                 value={validUntilDate}
                 onChange={(e) => setValidUntilDate(e.target.value)}
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
           </div>
@@ -363,11 +390,12 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.inclusions.status)}
               </div>
               <textarea
+                aria-label="Inclusions, one per line"
                 rows={3}
                 value={inclusionsText}
                 onChange={(e) => setInclusionsText(e.target.value)}
                 placeholder="e.g. Buffet service&#10;Cutlery & Crockery&#10;Welcome drinks"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
 
@@ -377,11 +405,12 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.exclusions.status)}
               </div>
               <textarea
+                aria-label="Exclusions, one per line"
                 rows={3}
                 value={exclusionsText}
                 onChange={(e) => setExclusionsText(e.target.value)}
                 placeholder="e.g. Taxes not included&#10;Late night staff surcharge"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
           </div>
@@ -394,11 +423,12 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.cancellationPolicy.status)}
               </div>
               <input
+                aria-label="Cancellation policy"
                 type="text"
                 value={cancellationPolicy}
                 onChange={(e) => setCancellationPolicy(e.target.value)}
                 placeholder="e.g. 50% refund up to 14 days before event"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
 
@@ -408,11 +438,12 @@ export default function QuotationExtractionModal({
                 {renderProvenanceBadge(candidate.notes.status)}
               </div>
               <input
+                aria-label="Notes and caveats"
                 type="text"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Special clauses or vendor notes"
-                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
               />
             </div>
           </div>
@@ -429,7 +460,7 @@ export default function QuotationExtractionModal({
           <button
             onClick={handleSaveVerifiedQuote}
             disabled={saving}
-            className="rounded-xl bg-orange-600 px-5 py-2.5 text-xs font-bold text-white shadow hover:bg-orange-500 disabled:opacity-50 flex items-center gap-1.5"
+            className="rounded-xl bg-[#285942] px-5 py-2.5 text-xs font-bold text-white shadow hover:bg-[#1e4734] disabled:opacity-50 flex items-center gap-1.5"
           >
             <span>💾</span>
             <span>{saving ? 'Saving...' : 'Save as Verified Quotation'}</span>

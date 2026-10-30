@@ -1,178 +1,56 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { getRawSqlite } from '@/lib/db';
 import {
-  createSignedSessionToken,
-  verifySessionToken,
-  getCurrentSessionUser,
-  validateCsrfOrigin,
-  UnauthorizedSessionError,
-  DEMO_USER,
+  getCurrentSessionUser, revokeSessionToken, UnauthorizedSessionError,
+  validateCsrfOrigin, verifySessionToken,
 } from '@/lib/auth/session';
+import { testSession } from '../helpers/auth';
 
-describe('Authentication, Signed Tokens & Session Isolation (Unit)', () => {
-  const originalEnv = { ...process.env };
-
+describe('session isolation', () => {
   beforeEach(() => {
-    process.env = { ...originalEnv };
+    getRawSqlite().exec('DELETE FROM user_sessions; DELETE FROM users;');
   });
 
-  afterEach(() => {
-    process.env = { ...originalEnv };
+  it('requires a real session in development and production', () => {
+    const req = new Request('http://localhost:3000/api/events');
+    expect(() => getCurrentSessionUser(req)).toThrow(UnauthorizedSessionError);
   });
 
-  describe('createSignedSessionToken & verifySessionToken', () => {
-    it('creates and verifies a valid signed session token', () => {
-      const user = {
-        id: 'usr_sarah_123',
-        name: 'Sarah Planner',
-        email: 'sarah@example.com',
-        isDemo: false,
-      };
-
-      const token = createSignedSessionToken(user, 3600);
-      expect(typeof token).toBe('string');
-      expect(token).toContain('.');
-
-      const verified = verifySessionToken(token);
-      expect(verified).not.toBeNull();
-      expect(verified?.id).toBe('usr_sarah_123');
-      expect(verified?.name).toBe('Sarah Planner');
-      expect(verified?.email).toBe('sarah@example.com');
-      expect(verified?.isDemoMode).toBe(false);
-    });
-
-    it('rejects tampered tokens when signature does not match payload', () => {
-      const user = {
-        id: 'usr_normal',
-        name: 'Normal User',
-        email: 'normal@example.com',
-      };
-
-      const token = createSignedSessionToken(user, 3600);
-      const [, sig] = token.split('.');
-
-      // Attacker attempts to change userId to admin
-      const tamperedPayload = Buffer.from(
-        JSON.stringify({ userId: 'usr_admin', name: 'Admin', email: 'admin@example.com', exp: Math.floor(Date.now() / 1000) + 3600 })
-      ).toString('base64url');
-
-      const tamperedToken = `${tamperedPayload}.${sig}`;
-      const result = verifySessionToken(tamperedToken);
-      expect(result).toBeNull();
-    });
-
-    it('rejects expired session tokens', () => {
-      const user = {
-        id: 'usr_expired',
-        name: 'Expired User',
-        email: 'expired@example.com',
-      };
-
-      // Expired 10 seconds ago
-      const token = createSignedSessionToken(user, -10);
-      const result = verifySessionToken(token);
-      expect(result).toBeNull();
-    });
-
-    it('rejects malformed tokens without period separator', () => {
-      expect(verifySessionToken('completely_invalid_token')).toBeNull();
-      expect(verifySessionToken('')).toBeNull();
-    });
+  it('accepts a stored bearer session and rejects tampering', () => {
+    const token = testSession({ id: 'usr_sarah', name: 'Sarah', email: 'sarah@example.com' });
+    const req = new Request('http://localhost:3000/api/events', { headers: { authorization: `Bearer ${token}` } });
+    expect(getCurrentSessionUser(req).id).toBe('usr_sarah');
+    expect(verifySessionToken(token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A'))).toBeNull();
+    expect(verifySessionToken('bad')).toBeNull();
   });
 
-  describe('getCurrentSessionUser', () => {
-    it('extracts and verifies session user from Authorization Bearer header', () => {
-      const token = createSignedSessionToken({
-        id: 'usr_bearer_user',
-        name: 'Bearer User',
-        email: 'bearer@example.com',
-      });
-
-      const req = new Request('http://localhost:3000/api/events', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const user = getCurrentSessionUser(req);
-      expect(user.id).toBe('usr_bearer_user');
-      expect(user.isDemoMode).toBe(false);
-    });
-
-    it('extracts and verifies session user from gatherly_session cookie', () => {
-      const token = createSignedSessionToken({
-        id: 'usr_cookie_user',
-        name: 'Cookie User',
-        email: 'cookie@example.com',
-      });
-
-      const req = new Request('http://localhost:3000/api/events', {
-        headers: {
-          Cookie: `gatherly_session=${token}; other_cookie=123`,
-        },
-      });
-
-      const user = getCurrentSessionUser(req);
-      expect(user.id).toBe('usr_cookie_user');
-      expect(user.isDemoMode).toBe(false);
-    });
-
-    it('throws UnauthorizedSessionError when an explicitly invalid or tampered token is provided', () => {
-      const req = new Request('http://localhost:3000/api/events', {
-        headers: {
-          Authorization: 'Bearer invalid.tampered.signature',
-        },
-      });
-
-      expect(() => getCurrentSessionUser(req)).toThrow(UnauthorizedSessionError);
-    });
-
-    it('falls back to DEMO_USER in development/test environment when unauthenticated', () => {
-      const req = new Request('http://localhost:3000/api/events');
-      const user = getCurrentSessionUser(req);
-      expect(user.id).toBe(DEMO_USER.id);
-      expect(user.isDemoMode).toBe(true);
-    });
-
-    it('throws UnauthorizedSessionError in production when demo auth is disabled', () => {
-      Object.defineProperty(process.env, 'NODE_ENV', {
-        value: 'production',
-        configurable: true,
-      });
-      process.env.ALLOW_DEMO_AUTH = 'false';
-
-      const req = new Request('http://localhost:3000/api/events');
-      expect(() => getCurrentSessionUser(req)).toThrow(UnauthorizedSessionError);
-    });
+  it('revokes a session on logout', () => {
+    const token = testSession({ id: 'usr_sarah', name: 'Sarah', email: 'sarah@example.com' });
+    expect(verifySessionToken(token)).not.toBeNull();
+    revokeSessionToken(token);
+    expect(verifySessionToken(token)).toBeNull();
   });
 
-  describe('validateCsrfOrigin', () => {
-    it('allows requests when origin host matches request host', () => {
-      const req = new Request('http://localhost:3000/api/auth/session', {
-        headers: {
-          Host: 'localhost:3000',
-          Origin: 'http://localhost:3000',
-        },
-      });
-      expect(validateCsrfOrigin(req)).toBe(true);
-    });
+  it('rejects expired sessions and sessions for deleted users', () => {
+    const token = testSession({ id: 'usr_sarah', name: 'Sarah', email: 'sarah@example.com' });
+    getRawSqlite().prepare('UPDATE user_sessions SET expires_at = 0').run();
+    expect(verifySessionToken(token)).toBeNull();
+    const fresh = testSession({ id: 'usr_sarah', name: 'Sarah', email: 'sarah@example.com' });
+    getRawSqlite().prepare('DELETE FROM users WHERE id = ?').run('usr_sarah');
+    expect(verifySessionToken(fresh)).toBeNull();
+  });
 
-    it('rejects state-changing requests when origin belongs to an external attacker domain', () => {
-      const req = new Request('http://localhost:3000/api/auth/session', {
-        headers: {
-          Host: 'localhost:3000',
-          Origin: 'https://evil-attacker-site.com',
-        },
-      });
-      expect(validateCsrfOrigin(req)).toBe(false);
-    });
-
-    it('passes non-browser requests without origin header', () => {
-      const req = new Request('http://localhost:3000/api/auth/session', {
-        headers: {
-          Host: 'localhost:3000',
-        },
-      });
-      expect(validateCsrfOrigin(req)).toBe(true);
-    });
+  it('requires same-origin browser mutations', () => {
+    const token = testSession({ id: 'usr_sarah', name: 'Sarah', email: 'sarah@example.com' });
+    const headers = { host: 'localhost:3000', cookie: `gatherly_session=${token}` };
+    expect(() => getCurrentSessionUser(new Request('http://localhost:3000/api/events', {
+      method: 'POST', headers,
+    }))).toThrow(UnauthorizedSessionError);
+    expect(validateCsrfOrigin(new Request('http://localhost:3000/api/events', {
+      method: 'POST', headers: { ...headers, origin: 'https://evil.example' },
+    }))).toBe(false);
+    expect(getCurrentSessionUser(new Request('http://localhost:3000/api/events', {
+      method: 'POST', headers: { ...headers, origin: 'http://localhost:3000' },
+    })).id).toBe('usr_sarah');
   });
 });

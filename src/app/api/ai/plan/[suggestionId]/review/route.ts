@@ -31,6 +31,8 @@ export async function POST(
         action: validated.action,
         selectedCategoryNames: validated.selectedCategoryNames,
         selectedTaskIds: validated.selectedTaskIds,
+        selectedAgendaIndices: validated.selectedAgendaIndices,
+        selectedVendorIndices: validated.selectedVendorIndices,
       },
       session.id
     );
@@ -49,7 +51,7 @@ export async function POST(
         {
           success: false,
           error: 'Validation failed.',
-          issues: error.errors.map((e) => ({
+          issues: error.issues.map((e) => ({
             field: e.path.join('.'),
             message: e.message,
           })),
@@ -58,7 +60,8 @@ export async function POST(
       );
     }
     const message = error instanceof Error ? error.message : 'Internal server error.';
-    const status = message.includes('not found') ? 404 : 500;
+    const status = message.includes('not found') ? 404 :
+      message.includes('budget') || message.includes('commitment') || message.includes('agenda') ? 409 : 500;
     return NextResponse.json({ success: false, error: message }, { status });
   }
 }
