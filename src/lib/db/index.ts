@@ -8,7 +8,11 @@ let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _sqlite: InstanceType<typeof Database> | null = null;
 
 export function getDatabasePath(): string {
-  const configured = process.env.DATABASE_URL || path.join(process.cwd(), 'data', 'gatherly.db');
+  const configured =
+    process.env.DATABASE_URL ||
+    (process.env.VERCEL
+      ? path.join('/tmp', 'gatherly.db')
+      : path.join(process.cwd(), 'data', 'gatherly.db'));
   if (configured === ':memory:') {
     if (process.env.NODE_ENV === 'production') throw new Error('A persistent database is required in production.');
     return configured;
