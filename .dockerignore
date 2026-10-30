@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+.env*.local
+.env
+data/*.db*
+private_uploads
+tests
+coverage
+*.log
+.gemini
