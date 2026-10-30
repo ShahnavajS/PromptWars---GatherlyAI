@@ -34,7 +34,7 @@ export interface EventListItem {
 /**
  * Creates a new event with deterministic initial seeding within an atomic transaction.
  */
-export async function createEvent(input: CreateEventInput, userId = 'usr_demo'): Promise<EventDetail> {
+export async function createEvent(input: CreateEventInput, userId: string): Promise<EventDetail> {
   const db = getDb();
   const rawSqlite = getRawSqlite();
 
@@ -178,7 +178,7 @@ export async function createEvent(input: CreateEventInput, userId = 'usr_demo'):
 /**
  * Retrieves full event workspace details.
  */
-export async function getEventById(eventId: string, userId = 'usr_demo'): Promise<EventDetail | null> {
+export async function getEventById(eventId: string, userId: string): Promise<EventDetail | null> {
   const db = getDb();
 
   const eventList = db
@@ -234,7 +234,7 @@ export async function getEventById(eventId: string, userId = 'usr_demo'): Promis
 /**
  * Lists all events for a user with budget & task completion aggregates.
  */
-export async function listEvents(userId = 'usr_demo'): Promise<EventListItem[]> {
+export async function listEvents(userId: string): Promise<EventListItem[]> {
   const db = getDb();
 
   const userEvents = db
@@ -282,7 +282,7 @@ export async function updateCategoryAllocation(
   eventId: string,
   categoryId: string,
   allocatedPaise: number,
-  userId = 'usr_demo'
+  userId: string
 ): Promise<{ updatedCategory: typeof budgetCategories.$inferSelect; budgetSummary: BudgetSummary }> {
   const db = getDb();
 
@@ -324,7 +324,7 @@ export async function updateTask(
   eventId: string,
   taskId: string,
   input: UpdateTaskInput,
-  userId = 'usr_demo'
+  userId: string
 ): Promise<typeof eventTasks.$inferSelect> {
   const db = getDb();
 

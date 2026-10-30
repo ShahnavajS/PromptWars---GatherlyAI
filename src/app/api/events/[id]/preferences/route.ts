@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { getPreferences, updatePreferences } from '@/lib/services/preferencesService';
@@ -36,12 +37,14 @@ export async function PATCH(
     const { id } = await params;
     const session = getCurrentSessionUser(req);
 
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = UpdatePreferencesSchema.parse(body);
 
     const preferences = await updatePreferences(id, session.id, validated);
     return NextResponse.json({ success: true, data: preferences });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

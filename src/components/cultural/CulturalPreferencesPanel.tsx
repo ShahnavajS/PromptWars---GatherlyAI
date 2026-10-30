@@ -263,11 +263,11 @@ export default function CulturalPreferencesPanel({ eventId }: CulturalPreference
                     <span className="text-lg">{PRESET_EMOJIS[key]}</span>
                     <span className="font-bold text-slate-900 text-sm">{preset.label}</span>
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-slate-600">
                     {preset.dietary === 'PURE_VEG' ? '🌿 Pure Veg' : '🍽️ Mixed'}
                   </div>
                   {preset.traditions.length > 0 && (
-                    <div className="mt-1 text-xs text-slate-500 line-clamp-1">
+                    <div className="mt-1 text-xs text-slate-600 line-clamp-1">
                       {preset.traditions.slice(0, 2).join(', ')}{preset.traditions.length > 2 ? '...' : ''}
                     </div>
                   )}

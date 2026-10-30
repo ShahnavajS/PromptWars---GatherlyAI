@@ -28,7 +28,7 @@ export const events = sqliteTable(
   'events',
   {
     id: text('id').primaryKey(),
-    userId: text('user_id').notNull().default('usr_demo'),
+    userId: text('user_id').notNull(),
     title: text('title').notNull(),
     eventType: text('event_type').notNull(), // 'WEDDING' | 'BIRTHDAY' | 'COMMUNITY' | 'CELEBRATION'
     status: text('status').notNull().default('PLANNING'), // 'DRAFT' | 'PLANNING' | 'CONFIRMED' | 'COMPLETED' | 'ARCHIVED'

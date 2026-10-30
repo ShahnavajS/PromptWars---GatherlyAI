@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { formatINR } from '@/lib/domain/formatting';
+import { useDialogFocus } from './useDialogFocus';
 
 interface VendorQuote {
   id: string;
@@ -61,6 +62,7 @@ export default function QuoteComparisonView({
     currency: string;
   } | null>(null);
   const [applying, setApplying] = useState(false);
+  const dialogRef = useDialogFocus(onClose);
 
   // Currency validation
   const currencies = Array.from(new Set(quotes.map((q) => q.currency || 'INR')));
@@ -157,7 +159,7 @@ export default function QuoteComparisonView({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div ref={dialogRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <div className="relative max-h-[90vh] w-full max-w-5xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
         <div className="sticky top-0 bg-white rounded-t-3xl border-b border-amber-200 px-6 py-4 flex items-center justify-between z-10">
           <div>
@@ -326,7 +328,7 @@ export default function QuoteComparisonView({
                 <th scope="row" className="text-left font-semibold text-slate-600 py-3 pr-4">Validity Period</th>
                 {quotes.map((q) => (
                   <td key={q.id} className="py-3 px-3 text-slate-500">
-                    {q.validUntilDate ? `Valid until ${q.validUntilDate}` : <span className="text-slate-400">Not specified in quote</span>}
+                    {q.validUntilDate ? `Valid until ${q.validUntilDate}` : <span className="text-slate-600">Not specified in quote</span>}
                   </td>
                 ))}
               </tr>
@@ -346,7 +348,7 @@ export default function QuoteComparisonView({
                           ))}
                         </ul>
                       ) : (
-                        <span className="text-slate-400">None explicitly listed</span>
+                        <span className="text-slate-600">None explicitly listed</span>
                       )}
                     </td>
                   );
@@ -368,7 +370,7 @@ export default function QuoteComparisonView({
                           ))}
                         </ul>
                       ) : (
-                        <span className="text-slate-400">No exclusions stated</span>
+                        <span className="text-slate-600">No exclusions stated</span>
                       )}
                     </td>
                   );
@@ -394,7 +396,7 @@ export default function QuoteComparisonView({
                           )}
                         </div>
                       ) : (
-                        <span className="text-slate-400">Not specified in quote</span>
+                        <span className="text-slate-600">Not specified in quote</span>
                       )}
                     </td>
                   );
@@ -404,7 +406,7 @@ export default function QuoteComparisonView({
                 <th scope="row" className="text-left font-semibold text-slate-600 py-3 pr-4 align-top">Cancellation Policy</th>
                 {quotes.map((q) => (
                   <td key={q.id} className="py-3 px-3 text-slate-600 align-top">
-                    {q.cancellationPolicy ?? <span className="text-slate-400">Not specified in quote</span>}
+                    {q.cancellationPolicy ?? <span className="text-slate-600">Not specified in quote</span>}
                   </td>
                 ))}
               </tr>
@@ -413,7 +415,7 @@ export default function QuoteComparisonView({
                   <th scope="row" className="text-left font-semibold text-slate-600 py-3 pr-4 align-top">Notes & Caveats</th>
                   {quotes.map((q) => (
                     <td key={q.id} className="py-3 px-3 text-slate-500 align-top">
-                      {q.notes || <span className="text-slate-400">—</span>}
+                      {q.notes || <span className="text-slate-600">—</span>}
                     </td>
                   ))}
                 </tr>

@@ -112,6 +112,17 @@ describe('API Route Handlers Integration', () => {
       const res = await postEvent(req);
       expect(res.status).toBe(400);
     });
+
+    it('rejects an oversized JSON body before creating an event', async () => {
+      const token = testSession({ id: 'usr_api', name: 'API Tester', email: 'api@example.com' });
+      const req = new NextRequest('http://localhost:3000/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ title: 'x'.repeat(17 * 1024) }),
+      });
+      expect((await postEvent(req)).status).toBe(413);
+      expect(getRawSqlite().prepare('SELECT COUNT(*) AS count FROM events').get()).toEqual({ count: 0 });
+    });
   });
 
   describe('GET /api/events/[id]', () => {

@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 
 # Install build dependencies for native modules (better-sqlite3)
 RUN apk add --no-cache libc6-compat python3 make g++ sqlite
@@ -17,10 +17,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Build the Next.js application
-RUN npm run build
+RUN DATABASE_URL=/app/data/gatherly-build.db APP_ORIGIN=https://example.test npm run build
+RUN npm prune --omit=dev
 
 # Runner stage
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 
 RUN apk add --no-cache libc6-compat sqlite

@@ -3,21 +3,31 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _sqlite: InstanceType<typeof Database> | null = null;
 
 export function getDatabasePath(): string {
-  const configured =
-    process.env.DATABASE_URL ||
-    (process.env.VERCEL
-      ? path.join('/tmp', 'gatherly.db')
-      : path.join(process.cwd(), 'data', 'gatherly.db'));
+  const production = process.env.NODE_ENV === 'production';
+  if (production && process.env.VERCEL) {
+    throw new Error('Local SQLite is not durable on Vercel. Use a single persistent-volume host.');
+  }
+  const configured = process.env.DATABASE_URL || (production ? '' : path.join(process.cwd(), 'data', 'gatherly.db'));
+  if (!configured) throw new Error('DATABASE_URL must be set to an absolute persistent path in production.');
   if (configured === ':memory:') {
-    if (process.env.NODE_ENV === 'production') throw new Error('A persistent database is required in production.');
+    if (production) throw new Error('A persistent database is required in production.');
     return configured;
   }
+  if (production && !path.isAbsolute(configured)) {
+    throw new Error('DATABASE_URL must be an absolute path in production.');
+  }
   const resolved = path.resolve(configured);
+  const tempDir = path.resolve(os.tmpdir());
+  const relativeToTemp = path.relative(tempDir, resolved);
+  if (production && (relativeToTemp === '' || (!relativeToTemp.startsWith('..') && !path.isAbsolute(relativeToTemp)))) {
+    throw new Error('DATABASE_URL must not point to temporary storage in production.');
+  }
   const publicDir = path.resolve(process.cwd(), 'public');
   const relativeToPublic = path.relative(publicDir, resolved);
   if (relativeToPublic === '' || (!relativeToPublic.startsWith('..') && !path.isAbsolute(relativeToPublic))) {
@@ -60,7 +70,7 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
 
     CREATE TABLE IF NOT EXISTS events (
       id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL DEFAULT 'usr_demo',
+      user_id TEXT NOT NULL,
       title TEXT NOT NULL,
       event_type TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'PLANNING',
@@ -275,30 +285,26 @@ export function initializeTables(sqlite: InstanceType<typeof Database>): void {
     CREATE INDEX IF NOT EXISTS idx_quotes_status ON vendor_quotes(status);
   `);
 
-  // Safe schema migration for existing SQLite databases without recreating data
-  try {
-    const eventCols = sqlite.pragma('table_info(events)') as Array<{ name: string }>;
-    if (eventCols.length > 0 && !eventCols.some((c) => c.name === 'version')) {
-      sqlite.exec('ALTER TABLE events ADD COLUMN version INTEGER NOT NULL DEFAULT 1;');
-    }
-    if (eventCols.length > 0 && !eventCols.some((c) => c.name === 'venue_capacity_max')) {
-      sqlite.exec('ALTER TABLE events ADD COLUMN venue_capacity_max INTEGER;');
-    }
+  // Compatible upgrades for existing SQLite databases. Fail startup if an upgrade fails.
+  const eventCols = sqlite.pragma('table_info(events)') as Array<{ name: string }>;
+  if (!eventCols.some((c) => c.name === 'version')) {
+    sqlite.exec('ALTER TABLE events ADD COLUMN version INTEGER NOT NULL DEFAULT 1;');
+  }
+  if (!eventCols.some((c) => c.name === 'venue_capacity_max')) {
+    sqlite.exec('ALTER TABLE events ADD COLUMN venue_capacity_max INTEGER;');
+  }
 
-    const taskCols = sqlite.pragma('table_info(event_tasks)') as Array<{ name: string }>;
-    if (taskCols.length > 0 && !taskCols.some((c) => c.name === 'deadline_provenance')) {
-      sqlite.exec("ALTER TABLE event_tasks ADD COLUMN deadline_provenance TEXT NOT NULL DEFAULT 'UNKNOWN';");
-    }
+  const taskCols = sqlite.pragma('table_info(event_tasks)') as Array<{ name: string }>;
+  if (!taskCols.some((c) => c.name === 'deadline_provenance')) {
+    sqlite.exec("ALTER TABLE event_tasks ADD COLUMN deadline_provenance TEXT NOT NULL DEFAULT 'UNKNOWN';");
+  }
 
-    const catCols = sqlite.pragma('table_info(budget_categories)') as Array<{ name: string }>;
-    if (catCols.length > 0 && !catCols.some((c) => c.name === 'rate_provenance')) {
-      sqlite.exec("ALTER TABLE budget_categories ADD COLUMN rate_provenance TEXT NOT NULL DEFAULT 'UNKNOWN_RATE';");
-    }
-    if (catCols.length > 0 && !catCols.some((c) => c.name === 'unit_rate_paise')) {
-      sqlite.exec('ALTER TABLE budget_categories ADD COLUMN unit_rate_paise INTEGER;');
-    }
-  } catch {
-    // If pragma fails or table does not exist yet, initializeTables handles it
+  const catCols = sqlite.pragma('table_info(budget_categories)') as Array<{ name: string }>;
+  if (!catCols.some((c) => c.name === 'rate_provenance')) {
+    sqlite.exec("ALTER TABLE budget_categories ADD COLUMN rate_provenance TEXT NOT NULL DEFAULT 'UNKNOWN_RATE';");
+  }
+  if (!catCols.some((c) => c.name === 'unit_rate_paise')) {
+    sqlite.exec('ALTER TABLE budget_categories ADD COLUMN unit_rate_paise INTEGER;');
   }
 }
 

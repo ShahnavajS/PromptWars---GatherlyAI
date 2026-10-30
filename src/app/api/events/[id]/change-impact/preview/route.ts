@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { ChangePreviewRequestSchema } from '@/lib/domain/impact/schemas';
 import { generateChangePreview, UnauthorizedEventError } from '@/lib/services/changeImpactService';
@@ -14,7 +15,7 @@ export async function POST(
     }
 
     const sessionUser = getCurrentSessionUser(req);
-    const body = await req.json();
+    const body = await readJsonBody(req);
 
     const parseResult = ChangePreviewRequestSchema.safeParse(body);
     if (!parseResult.success) {
@@ -28,6 +29,8 @@ export async function POST(
     const preview = await generateChangePreview(eventId, parseResult.data, sessionUser.id);
     return NextResponse.json({ success: true, preview });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

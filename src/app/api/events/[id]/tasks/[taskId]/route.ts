@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { updateTask } from '@/lib/services/eventService';
 import { UpdateTaskSchema } from '@/lib/validation/events';
@@ -15,12 +16,14 @@ export async function PATCH(
     }
 
     const session = getCurrentSessionUser(req);
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = UpdateTaskSchema.parse(body);
 
     const updatedTask = await updateTask(id, taskId, validated, session.id);
     return NextResponse.json({ success: true, data: updatedTask });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

@@ -30,7 +30,7 @@ describe('Change-Impact & Stale State Concurrency (Integration Tests)', () => {
       venueCity: 'Ahmedabad',
       targetGuestCount: 200,
       totalBudgetRupees: 1200000,
-    });
+    }, 'usr_demo');
 
     const preview = await generateChangePreview(
       initialDetail.event.id,
@@ -58,7 +58,7 @@ describe('Change-Impact & Stale State Concurrency (Integration Tests)', () => {
       venueCity: 'Ahmedabad',
       targetGuestCount: 200,
       totalBudgetRupees: 1200000,
-    });
+    }, 'usr_demo');
 
     const preview = await generateChangePreview(
       initialDetail.event.id,
@@ -113,7 +113,7 @@ describe('Change-Impact & Stale State Concurrency (Integration Tests)', () => {
       venueCity: 'Ahmedabad',
       targetGuestCount: 200,
       totalBudgetRupees: 1200000,
-    });
+    }, 'usr_demo');
 
     const originalCatering = initialDetail.categories.find((c) =>
       c.name.includes('Catering')
@@ -158,7 +158,7 @@ describe('Change-Impact & Stale State Concurrency (Integration Tests)', () => {
       venueCity: 'Ahmedabad',
       targetGuestCount: 200,
       totalBudgetRupees: 1200000,
-    });
+    }, 'usr_demo');
 
     // 1. Client A generates preview based on version 1
     const previewA = await generateChangePreview(

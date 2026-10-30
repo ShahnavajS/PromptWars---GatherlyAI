@@ -33,7 +33,7 @@ export class UnauthorizedEventError extends Error {
 export async function generateChangePreview(
   eventId: string,
   request: ChangePreviewRequest,
-  userId = 'usr_demo'
+  userId: string
 ): Promise<ImpactPreviewResult> {
   const currentSnapshot = await getEventById(eventId, userId);
   if (!currentSnapshot) {
@@ -50,7 +50,7 @@ export async function generateChangePreview(
 export async function confirmAndApplyChange(
   eventId: string,
   request: ChangeConfirmRequest,
-  userId = 'usr_demo'
+  userId: string
 ): Promise<{ success: boolean; event: EventDetail; activityId: string }> {
   const db = getDb();
   const rawSqlite = getRawSqlite();
@@ -222,7 +222,7 @@ export async function confirmAndApplyChange(
 /**
  * Retrieves audit history of requirement changes for an event.
  */
-export async function getEventHistory(eventId: string, userId = 'usr_demo') {
+export async function getEventHistory(eventId: string, userId: string) {
   const db = getDb();
 
   // Ownership verification

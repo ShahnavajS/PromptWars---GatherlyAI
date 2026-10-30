@@ -18,13 +18,13 @@ The independent research and initial end-to-end audit were completed on 30 Octob
 
 - TypeScript `tsc --noEmit`: passed.
 - ESLint: passed.
-- Vitest: 143 tests passed across 24 files.
+- Vitest: 149 tests passed across 27 files in the latest local run.
 - Next.js production build with webpack: passed.
 - `git diff --check` on implementation files: passed. The preexisting `next-env.d.ts` CRLF edit was preserved; Git flags its added CRLF lines as trailing whitespace when checked without a path filter.
 
 ## Manual verification still needed
 
-Complete a full keyboard, screen-reader, contrast, real-PDF, and live-Gemini walkthrough before release. Automated source and route tests cannot establish those results.
+Complete a full keyboard and screen-reader walkthrough, live-Gemini canary, and deployed HTTPS/Docker check before release. The current automated suite includes axe contrast scans and a valid uncompressed-PDF upload test, but cannot establish those manual results.
 
 ## Frontend redesign, 30 October 2026
 
@@ -34,4 +34,14 @@ Complete a full keyboard, screen-reader, contrast, real-PDF, and live-Gemini wal
 4. Aligned deeper tools to the new forest action palette and card treatment; made the vendor expansion control keyboard operable; replaced developer-facing product copy.
 5. Browser checked the welcome, event setup, sign-in, and workspace screens, including all six workspace sections at 320px. No page-level horizontal overflow was observed. Birthday occasion preselection was checked.
 
-Frontend verification: TypeScript passed, ESLint passed, 143 tests passed across 24 files, and the Next.js webpack production build passed. Browser visual checks do not replace a full keyboard and screen-reader review.
+Frontend verification at that stage: TypeScript passed, ESLint passed, 149 tests passed across 27 files, five browser journeys passed, and the Next.js webpack production build passed. The release suite below now has six browser journeys. Browser visual checks do not replace a full keyboard and screen-reader review.
+
+## Release hardening, 30–31 October 2026
+
+1. Required a persistent absolute production SQLite path, removed the Vercel temporary-file fallback, aligned Docker with Node 24, and made compatibility upgrade errors stop startup.
+2. Removed implicit demo owner parameters and the new-database demo owner default. Added schema parity, historical upgrade, online backup/restore, and production restart checks with synthetic accounts.
+3. Bounded model output, stored proposal shapes, request bodies, and deadline offsets. Added a valid PDF upload test that confirms extraction remains a review candidate until saved.
+4. Rendered the private event list and event workspace on the server with verified ownership, and loaded workspace sections on demand.
+5. Added six Playwright journeys for guest and cross-account access, all three required event types, partial plan review, quote confirmation with budget effect, and axe scans of sign-in, setup, overview, every workspace section, a populated AI proposal, and quote dialogs. Fixed observed contrast issues, added a section-change announcement, and checked dialog focus, Escape, and return focus.
+6. Added a GitHub Actions gate for type-check, lint, Vitest, production build, Playwright, and production dependency audit. See [release evidence](RELEASE_EVIDENCE.md) for exact results and remaining gates.
+7. Split plan proposal review and vendor quote entry into focused components. Shared dialog focus handling and validated quote form fields, including a zero-cost donated service.

@@ -2,12 +2,13 @@ node_modules
 .next
 .git
 .gitignore
-.env*.local
-.env
+.env*
 data/*.db*
 private_uploads
 tests
 coverage
+test-results
+playwright-report
 *.log
 .gemini
 

@@ -67,6 +67,8 @@ export async function generateStructuredPlanWithGemini(
         responseMimeType: 'application/json',
         systemInstruction,
         temperature: 0.4,
+        maxOutputTokens: 6144,
+        abortSignal: AbortSignal.timeout(45_000),
         // Disable thinking budget so reasoning tokens don't corrupt JSON output.
         // gemini-2.5-flash is a hybrid thinking model; without this, it may
         // prepend chain-of-thought text before the JSON object.
@@ -88,6 +90,9 @@ export async function generateStructuredPlanWithGemini(
 
   if (!rawResponseText) {
     throw new GeminiGenerationError('Gemini returned an empty response.');
+  }
+  if (Buffer.byteLength(rawResponseText, 'utf8') > 64 * 1024) {
+    throw new GeminiGenerationError('Gemini response exceeded the size limit.');
   }
 
   // Strip markdown code fences if model enclosed JSON
@@ -192,7 +197,7 @@ export function normalizePlanProposal(
   // Compute tasks with deterministic due dates based on relativeDeadlineDays
   const normalizedTasks: NormalizedPlanSuggestion['tasks'] = rawPlan.tasks.map((task, idx) => {
     const dueDate = new Date(eventStartDate);
-    dueDate.setDate(dueDate.getDate() - (task.relativeDeadlineDays || 7));
+    dueDate.setUTCDate(dueDate.getUTCDate() - task.relativeDeadlineDays);
 
     return {
       id: `sug_tsk_${crypto.randomUUID().slice(0, 8)}_${idx}`,

@@ -316,7 +316,7 @@ describe('Plan Review, Staging & Idempotent Acceptance Integration', () => {
     const detail = await createEvent({
       title: 'Committed Wedding', eventType: 'WEDDING', startDate: '2026-11-20',
       venueCity: 'Ahmedabad', targetGuestCount: 100, totalBudgetRupees: 1000000,
-    });
+    }, 'usr_demo');
     const fallback = getStarterPlanTemplate('WEDDING', detail.event.title, 'Ahmedabad', 100, 1000000, '2026-11-20');
     const saved = await savePlanSuggestion(detail.event.id, 'Notes', fallback.plan, 'test-model');
     const sqlite = getRawSqlite();
@@ -329,24 +329,40 @@ describe('Plan Review, Staging & Idempotent Acceptance Integration', () => {
 
     await expect(applyPlanReview(detail.event.id, saved.id, {
       action: 'ACCEPT_SELECTED', selectedCategoryNames: [protectedCategory.name],
-    })).rejects.toThrow(/confirmed quote commitment/);
-    const after = await getEventById(detail.event.id);
+    }, 'usr_demo')).rejects.toThrow(/confirmed quote commitment/);
+    const after = await getEventById(detail.event.id, 'usr_demo');
     expect(after!.categories.find((category) => category.id === protectedCategory.id)?.allocatedPaise)
       .toBe(protectedCategory.allocatedPaise);
-    expect((await getLatestPlanSuggestion(detail.event.id))?.status).toBe('PENDING_REVIEW');
+    expect((await getLatestPlanSuggestion(detail.event.id, 'usr_demo'))?.status).toBe('PENDING_REVIEW');
   });
 
   it('rejects agenda blocks outside a single-day event', async () => {
     const detail = await createEvent({
       title: 'One Day Birthday', eventType: 'BIRTHDAY', startDate: '2026-11-20',
       venueCity: 'Pune', targetGuestCount: 50, totalBudgetRupees: 100000,
-    });
+    }, 'usr_demo');
     const fallback = getStarterPlanTemplate('BIRTHDAY', detail.event.title, 'Pune', 50, 100000, '2026-11-20');
     fallback.plan.agendaBlocks.push({ dayNumber: 2, title: 'Unplanned second day', timeWindow: 'Morning', description: 'Outside event range' });
     const saved = await savePlanSuggestion(detail.event.id, 'Notes', fallback.plan, 'test-model');
-    await expect(applyPlanReview(detail.event.id, saved.id, { action: 'ACCEPT_ALL' }))
+    await expect(applyPlanReview(detail.event.id, saved.id, { action: 'ACCEPT_ALL' }, 'usr_demo'))
       .rejects.toThrow(/beyond the event date range/);
-    expect((await getLatestPlanSuggestion(detail.event.id))?.status).toBe('PENDING_REVIEW');
+    expect((await getLatestPlanSuggestion(detail.event.id, 'usr_demo'))?.status).toBe('PENDING_REVIEW');
+  });
+
+  it('does not display or apply a corrupted stored suggestion', async () => {
+    const detail = await createEvent({
+      title: 'Corrupt Proposal Wedding', eventType: 'WEDDING', startDate: '2026-11-20',
+      venueCity: 'Pune', targetGuestCount: 50, totalBudgetRupees: 100000,
+    }, 'usr_demo');
+    const fallback = getStarterPlanTemplate('WEDDING', detail.event.title, 'Pune', 50, 100000, '2026-11-20');
+    const saved = await savePlanSuggestion(detail.event.id, 'Notes', fallback.plan, 'test-model');
+    getRawSqlite().prepare('UPDATE ai_plan_suggestions SET raw_payload_json = ? WHERE id = ?')
+      .run('{"budgetPlan":{"categories":[]}}', saved.id);
+
+    expect(await getLatestPlanSuggestion(detail.event.id, 'usr_demo')).toBeNull();
+    await expect(applyPlanReview(detail.event.id, saved.id, { action: 'ACCEPT_ALL' }, 'usr_demo'))
+      .rejects.toThrow();
+    expect((await getEventById(detail.event.id, 'usr_demo'))?.categories).toEqual(detail.categories);
   });
 });
 

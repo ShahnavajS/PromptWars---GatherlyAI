@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { updateCategoryAllocation } from '@/lib/services/eventService';
 import { UpdateCategoryAllocationSchema } from '@/lib/validation/events';
@@ -15,12 +16,14 @@ export async function PATCH(
     }
 
     const session = getCurrentSessionUser(req);
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = UpdateCategoryAllocationSchema.parse(body);
 
     const result = await updateCategoryAllocation(id, categoryId, validated.allocatedPaise, session.id);
     return NextResponse.json({ success: true, data: result });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

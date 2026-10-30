@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
@@ -33,12 +34,14 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const user = getCurrentSessionUser(req);
     const { id } = await params;
     if (!ownedEvent(id, user.id)) return NextResponse.json({ success: false, error: 'Event not found.' }, { status: 404 });
-    const input = UpdateRequirement.parse(await req.json());
+    const input = UpdateRequirement.parse(await readJsonBody(req));
     const changed = getDb().update(vendorRequirements).set({ status: input.status, updatedAt: new Date().toISOString() })
       .where(and(eq(vendorRequirements.id, input.requirementId), eq(vendorRequirements.eventId, id))).run();
     if (!changed.changes) return NextResponse.json({ success: false, error: 'Requirement not found.' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     const status = error instanceof UnauthorizedSessionError ? 401 : error instanceof z.ZodError ? 400 : 500;
     return NextResponse.json({ success: false, error: 'Could not update vendor requirement.' }, { status });
   }

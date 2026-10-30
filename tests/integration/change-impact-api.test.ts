@@ -31,7 +31,7 @@ describe('Change-Impact API Routes Integration', () => {
         venueCity: 'Ahmedabad',
         targetGuestCount: 200,
         totalBudgetRupees: 1200000,
-      });
+      }, 'usr_demo');
 
       const req = new NextRequest(
         `http://localhost:3000/api/events/${detail.event.id}/change-impact/preview`,
@@ -62,7 +62,7 @@ describe('Change-Impact API Routes Integration', () => {
         venueCity: 'Ahmedabad',
         targetGuestCount: 200,
         totalBudgetRupees: 1200000,
-      });
+      }, 'usr_demo');
 
       const req = new NextRequest(
         `http://localhost:3000/api/events/${detail.event.id}/change-impact/preview`,
@@ -113,7 +113,7 @@ describe('Change-Impact API Routes Integration', () => {
         venueCity: 'Ahmedabad',
         targetGuestCount: 200,
         totalBudgetRupees: 1200000,
-      });
+      }, 'usr_demo');
 
       const confirmReq = new NextRequest(
         `http://localhost:3000/api/events/${detail.event.id}/change-impact/confirm`,
@@ -149,7 +149,7 @@ describe('Change-Impact API Routes Integration', () => {
         venueCity: 'Ahmedabad',
         targetGuestCount: 200,
         totalBudgetRupees: 1200000,
-      });
+      }, 'usr_demo');
 
       // Submit confirm with obsolete version
       const confirmReq = new NextRequest(
@@ -187,7 +187,7 @@ describe('Change-Impact API Routes Integration', () => {
         venueCity: 'Ahmedabad',
         targetGuestCount: 200,
         totalBudgetRupees: 1200000,
-      });
+      }, 'usr_demo');
 
       const req = new NextRequest(`http://localhost:3000/api/events/${detail.event.id}/history`, { headers: { authorization: `Bearer ${token}` } });
       const res = await getHistory(req, {

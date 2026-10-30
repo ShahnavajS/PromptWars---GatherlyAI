@@ -6,7 +6,8 @@ import {
 } from '@/lib/ai/gemini';
 import { getStarterPlanTemplate } from '@/lib/ai/fallbacks';
 import { buildUserPrompt } from '@/lib/ai/prompts';
-import { StructuredPlanOutput } from '@/lib/ai/schemas';
+import { StructuredPlanOutput, StructuredPlanOutputSchema } from '@/lib/ai/schemas';
+import { normalizePlanProposal } from '@/lib/ai/gemini';
 
 // Mock the GoogleGenAI SDK module
 vi.mock('@google/genai', () => {
@@ -159,6 +160,21 @@ describe('GenAI Planning Engine (@google/genai)', () => {
       const catSum = result.plan.budgetPlan.categories.reduce((acc, c) => acc + c.allocatedPaise, 0);
       expect(catSum + result.plan.budgetPlan.contingencyPaise).toBe(150000000);
       expect(result.modelUsed).toBe('gemini-2.5-flash');
+      expect(mockGenerateContent.mock.calls[0][0].config.maxOutputTokens).toBe(6144);
+    });
+
+    it('bounds generated lists and keeps an event-day deadline on the event date', () => {
+      const invalid = structuredClone(validModelJson);
+      invalid.tasks[0].relativeDeadlineDays = -1;
+      expect(StructuredPlanOutputSchema.safeParse(invalid).success).toBe(false);
+      invalid.tasks[0].relativeDeadlineDays = 0;
+      invalid.vendorRequirements = Array.from({ length: 13 }, () => validModelJson.vendorRequirements[0]);
+      expect(StructuredPlanOutputSchema.safeParse(invalid).success).toBe(false);
+
+      const valid = structuredClone(validModelJson);
+      valid.tasks[0].relativeDeadlineDays = 0;
+      const plan = normalizePlanProposal(valid, 100_000, new Date('2026-01-01'));
+      expect(plan.tasks[0].computedDueDateIso).toBe('2026-01-01');
     });
 
     it('throws GeminiGenerationError on provider authentication failure', async () => {

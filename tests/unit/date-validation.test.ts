@@ -27,4 +27,13 @@ describe('date-only and time validation', () => {
       startTime: '14:00', endTime: '13:00', sortOrder: 0,
     }).success).toBe(false);
   });
+
+  it('accepts only the supported event timezone', () => {
+    const event = {
+      title: 'Birthday in Pune', eventType: 'BIRTHDAY', startDate: '2027-06-15',
+      venueCity: 'Pune', targetGuestCount: 10, totalBudgetRupees: 1000,
+    };
+    expect(CreateEventSchema.safeParse(event).success).toBe(true);
+    expect(CreateEventSchema.safeParse({ ...event, timezone: 'Invalid/Zone' }).success).toBe(false);
+  });
 });

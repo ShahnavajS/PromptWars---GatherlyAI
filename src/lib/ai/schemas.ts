@@ -17,7 +17,7 @@ export const AiTaskProposalSchema = z.object({
   description: z.string().trim().max(500).default(''),
   category: z.enum(['VENUE', 'CATERING', 'DECOR', 'LOGISTICS', 'GENERAL', 'ENTERTAINMENT']).default('GENERAL'),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).default('MEDIUM'),
-  relativeDeadlineDays: z.number().int().default(7),
+  relativeDeadlineDays: z.number().int().min(0).max(730).default(7),
   rationale: z.string().trim().max(300).default(''),
 });
 
@@ -38,7 +38,7 @@ export const AiVendorRequirementSchema = z.object({
   category: z.string().trim().min(2).max(50),
   title: z.string().trim().min(3).max(120),
   specifications: z.string().trim().min(5).max(500),
-  comparisonCriteria: z.array(z.string().trim().max(150)).default([]),
+  comparisonCriteria: z.array(z.string().trim().max(150)).max(8).default([]),
 });
 
 /**
@@ -51,17 +51,17 @@ export const StructuredPlanOutputSchema = z.object({
     overview: z.string().trim().min(10).max(600),
     theme: z.string().trim().min(3).max(100),
     atmosphere: z.string().trim().min(3).max(150),
-    keyAssumptions: z.array(z.string().trim().max(200)).default([]),
-    missingInformation: z.array(z.string().trim().max(200)).default([]),
+    keyAssumptions: z.array(z.string().trim().max(200)).max(8).default([]),
+    missingInformation: z.array(z.string().trim().max(200)).max(8).default([]),
   }),
 
   // B. Personalization
   personalization: z.object({
-    culturalTraditions: z.array(z.string().trim().max(150)).default([]),
-    dietaryPlans: z.array(z.string().trim().max(150)).default([]),
-    accessibilityNotes: z.array(z.string().trim().max(150)).default([]),
-    decorAndColors: z.array(z.string().trim().max(150)).default([]),
-    entertainmentIdeas: z.array(z.string().trim().max(150)).default([]),
+    culturalTraditions: z.array(z.string().trim().max(150)).max(8).default([]),
+    dietaryPlans: z.array(z.string().trim().max(150)).max(8).default([]),
+    accessibilityNotes: z.array(z.string().trim().max(150)).max(8).default([]),
+    decorAndColors: z.array(z.string().trim().max(150)).max(8).default([]),
+    entertainmentIdeas: z.array(z.string().trim().max(150)).max(8).default([]),
   }),
 
   // C. Proposed Budget Allocations (Proportions of available pool)
@@ -74,10 +74,10 @@ export const StructuredPlanOutputSchema = z.object({
   tasks: z.array(AiTaskProposalSchema).min(3).max(20),
 
   // E. Optional Agenda Blocks
-  agendaBlocks: z.array(AiAgendaBlockSchema).default([]),
+  agendaBlocks: z.array(AiAgendaBlockSchema).max(20).default([]),
 
   // F. Vendor Requirements
-  vendorRequirements: z.array(AiVendorRequirementSchema).default([]),
+  vendorRequirements: z.array(AiVendorRequirementSchema).max(12).default([]),
 });
 
 export type StructuredPlanOutput = z.infer<typeof StructuredPlanOutputSchema>;
@@ -113,6 +113,34 @@ export interface NormalizedPlanSuggestion {
   agendaBlocks: StructuredPlanOutput['agendaBlocks'];
   vendorRequirements: StructuredPlanOutput['vendorRequirements'];
 }
+
+const Paise = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+/** Re-check persisted proposals before display or application. */
+export const NormalizedPlanSuggestionSchema = z.object({
+  concept: StructuredPlanOutputSchema.shape.concept,
+  personalization: StructuredPlanOutputSchema.shape.personalization,
+  budgetPlan: z.object({
+    totalBudgetPaise: Paise,
+    contingencyPercentage: z.number().int().min(5).max(30),
+    contingencyPaise: Paise,
+    availableAllocationPaise: Paise,
+    categories: z.array(z.object({
+      id: z.string().min(1).max(100),
+      name: AiCategoryProposalSchema.shape.name,
+      percentage: z.number().int().min(0).max(100),
+      allocatedPaise: Paise,
+      rationale: AiCategoryProposalSchema.shape.rationale,
+      isAccepted: z.boolean(),
+    })).min(3).max(10),
+  }),
+  tasks: z.array(AiTaskProposalSchema.extend({
+    id: z.string().min(1).max(100),
+    computedDueDateIso: z.iso.date(),
+    isAccepted: z.boolean(),
+  })).min(3).max(20),
+  agendaBlocks: StructuredPlanOutputSchema.shape.agendaBlocks,
+  vendorRequirements: StructuredPlanOutputSchema.shape.vendorRequirements,
+});
 
 /**
  * Request payload for generating an AI plan

@@ -271,10 +271,13 @@ JSON SCHEMA TO RETURN:
       config: {
         responseMimeType: 'application/json',
         temperature: 0.1, // low temperature for precise factual extraction
+        maxOutputTokens: 2048,
+        abortSignal: AbortSignal.timeout(45_000),
       },
     });
 
     const text = response.text || '';
+    if (Buffer.byteLength(text, 'utf8') > 32 * 1024) throw new Error('Quotation response exceeded the size limit.');
     const cleaned = text.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
     const data = QuotationOutputSchema.parse(JSON.parse(cleaned));
 

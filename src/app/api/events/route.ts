@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { createEvent, listEvents } from '@/lib/services/eventService';
 import { CreateEventSchema } from '@/lib/validation/events';
@@ -20,12 +21,14 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = getCurrentSessionUser(req);
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = CreateEventSchema.parse(body);
 
     const eventDetail = await createEvent(validated, session.id);
     return NextResponse.json({ success: true, data: eventDetail }, { status: 201 });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

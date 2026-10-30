@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { getQuotesForEvent, createQuote } from '@/lib/services/vendorService';
@@ -35,12 +36,14 @@ export async function POST(
     const { id } = await params;
     const session = getCurrentSessionUser(req);
 
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = CreateQuoteSchema.parse(body);
 
     const quote = await createQuote(id, session.id, validated);
     return NextResponse.json({ success: true, data: quote }, { status: 201 });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

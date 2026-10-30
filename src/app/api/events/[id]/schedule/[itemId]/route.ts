@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentSessionUser, UnauthorizedSessionError } from '@/lib/auth/session';
 import { updateScheduleItem, deleteScheduleItem } from '@/lib/services/scheduleService';
@@ -12,12 +13,14 @@ export async function PATCH(
     const { id, itemId } = await params;
     const session = getCurrentSessionUser(req);
 
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = UpdateScheduleItemSchema.parse(body);
 
     const item = await updateScheduleItem(id, session.id, itemId, validated);
     return NextResponse.json({ success: true, data: item });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }
@@ -57,6 +60,8 @@ export async function DELETE(
     await deleteScheduleItem(id, session.id, itemId);
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { ReviewActionSchema } from '@/lib/ai/schemas';
 import { applyPlanReview } from '@/lib/services/planReviewService';
@@ -21,7 +22,7 @@ export async function POST(
       );
     }
 
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = ReviewActionSchema.parse(body);
 
     const result = await applyPlanReview(
@@ -42,6 +43,8 @@ export async function POST(
       data: result,
     });
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

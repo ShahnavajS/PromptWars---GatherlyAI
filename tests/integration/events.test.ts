@@ -32,7 +32,7 @@ describe('Event Database Integration & Vertical Slice', () => {
       venueName: 'The Grand Bhagwati',
       targetGuestCount: 250,
       totalBudgetRupees: 1500000, // ₹15 Lakh
-      timezone: 'Asia/Kolkata',
+      timezone: 'Asia/Kolkata' as const,
     };
 
     const detail = await createEvent(input, 'usr_test_1');

@@ -29,7 +29,7 @@ describe('AI Planning API Routes Integration', () => {
         venueCity: 'Ahmedabad',
         targetGuestCount: 200,
         totalBudgetRupees: 1200000,
-      });
+      }, 'usr_demo');
 
       const req = new NextRequest('http://localhost:3000/api/ai/plan', {
         method: 'POST',
@@ -118,7 +118,7 @@ describe('AI Planning API Routes Integration', () => {
         venueCity: 'Vadodara',
         targetGuestCount: 50,
         totalBudgetRupees: 150000,
-      });
+      }, 'usr_demo');
 
       // Generate a plan
       const genReq = new NextRequest('http://localhost:3000/api/ai/plan', {
@@ -155,7 +155,7 @@ describe('AI Planning API Routes Integration', () => {
         venueCity: 'Ahmedabad',
         targetGuestCount: 200,
         totalBudgetRupees: 1200000,
-      });
+      }, 'usr_demo');
 
       const genReq = new NextRequest('http://localhost:3000/api/ai/plan', {
         method: 'POST',

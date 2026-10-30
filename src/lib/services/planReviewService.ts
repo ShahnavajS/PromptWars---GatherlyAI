@@ -1,7 +1,7 @@
 import { getDb, getRawSqlite } from '@/lib/db';
 import { aiPlanSuggestions, eventBudgets, budgetCategories, eventTasks, eventSchedules, vendorRequirements, vendorQuotes } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { NormalizedPlanSuggestion } from '@/lib/ai/schemas';
+import { NormalizedPlanSuggestion, NormalizedPlanSuggestionSchema } from '@/lib/ai/schemas';
 import { getEventById } from './eventService';
 import crypto from 'crypto';
 
@@ -59,7 +59,7 @@ export async function savePlanSuggestion(
  */
 export async function getLatestPlanSuggestion(
   eventId: string,
-  userId = 'usr_demo'
+  userId: string
 ): Promise<PlanSuggestionRecord | null> {
   const db = getDb();
 
@@ -84,7 +84,7 @@ export async function getLatestPlanSuggestion(
   const rec = list[0];
   let plan: NormalizedPlanSuggestion;
   try {
-    plan = JSON.parse(rec.rawPayloadJson);
+    plan = NormalizedPlanSuggestionSchema.parse(JSON.parse(rec.rawPayloadJson));
   } catch {
     return null;
   }
@@ -115,7 +115,7 @@ export async function applyPlanReview(
     selectedAgendaIndices?: number[];
     selectedVendorIndices?: number[];
   },
-  userId = 'usr_demo'
+  userId: string
 ): Promise<{ success: boolean; status: string; appliedCategoriesCount: number; appliedTasksCount: number; appliedAgendaCount: number; appliedVendorCount: number }> {
   const db = getDb();
   const rawSqlite = getRawSqlite();
@@ -156,7 +156,7 @@ export async function applyPlanReview(
     return { success: true, status: 'REJECTED', appliedCategoriesCount: 0, appliedTasksCount: 0, appliedAgendaCount: 0, appliedVendorCount: 0 };
   }
 
-  const parsedPlan: NormalizedPlanSuggestion = JSON.parse(suggestion.rawPayloadJson);
+  const parsedPlan = NormalizedPlanSuggestionSchema.parse(JSON.parse(suggestion.rawPayloadJson));
   let appliedCategoriesCount = 0;
   let appliedTasksCount = 0;
   let appliedAgendaCount = 0;

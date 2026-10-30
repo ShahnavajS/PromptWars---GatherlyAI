@@ -1,8 +1,9 @@
 import crypto from 'node:crypto';
 import { getRawSqlite } from '@/lib/db';
 import { exampleAccountConfig } from './accounts';
+import { SESSION_COOKIE } from './constants';
 
-export const SESSION_COOKIE = process.env.NODE_ENV === 'production' ? '__Host-gatherly_session' : 'gatherly_session';
+export { SESSION_COOKIE } from './constants';
 export const SESSION_SECONDS = 12 * 60 * 60;
 
 export interface SessionUser {

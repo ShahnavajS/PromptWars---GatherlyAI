@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { ExtractedQuotationCandidate } from '@/lib/services/quotationExtractionService';
+import { useDialogFocus } from './useDialogFocus';
 
 interface Vendor {
   id: string;
@@ -70,26 +71,7 @@ export default function QuotationExtractionModal({
   const [notes, setNotes] = useState(candidate.notes.value || '');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
-
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dialogRef.current?.querySelector<HTMLElement>('button')?.focus();
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onCloseRef.current();
-      if (event.key !== 'Tab') return;
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>('button, input, select, textarea, [href]');
-      if (!focusable?.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => { document.removeEventListener('keydown', onKeyDown); previous?.focus(); };
-  }, []);
+  const dialogRef = useDialogFocus(onClose);
 
   const renderProvenanceBadge = (status: 'EXTRACTED' | 'NOT_PROVIDED' | 'USER_CONFIRMED') => {
     if (status === 'EXTRACTED') {

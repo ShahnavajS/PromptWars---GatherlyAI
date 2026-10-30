@@ -1,3 +1,4 @@
+import { readJsonBody, jsonBodyErrorResponse } from '@/lib/api/jsonBody';
 import { NextRequest, NextResponse } from 'next/server';
 import { GeneratePlanRequestSchema } from '@/lib/ai/schemas';
 import { isGeminiConfigured, generateStructuredPlanWithGemini } from '@/lib/ai/gemini';
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = getCurrentSessionUser(req);
-    const body = await req.json();
+    const body = await readJsonBody(req);
     const validated = GeneratePlanRequestSchema.parse(body);
 
     // Fetch existing event data
@@ -117,6 +118,8 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (error: unknown) {
+    const bodyError = jsonBodyErrorResponse(error);
+    if (bodyError) return bodyError;
     if (error instanceof UnauthorizedSessionError) {
       return NextResponse.json({ success: false, error: 'Authentication required.' }, { status: 401 });
     }

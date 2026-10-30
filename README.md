@@ -15,7 +15,7 @@ Gatherly is an event planning assistant for weddings, birthdays, community gathe
 ## Local setup
 
 1. Install Node.js 24 and run npm ci.
-2. Copy .env.example to .env.local. Set GEMINI_API_KEY to enable Gemini planning and PDF extraction. For production, set APP_ORIGIN to the public HTTPS URL and DATABASE_URL to persistent storage.
+2. Copy .env.example to .env.local. Set GEMINI_API_KEY to enable Gemini planning and PDF extraction. For production, set APP_ORIGIN to the public HTTPS URL and DATABASE_URL to an absolute path on persistent storage. Vercel's local filesystem is unsupported.
 3. Run npm run dev, then open http://localhost:3000.
 4. Create an organizer account through Sign in, or fill the separate example account on the sign-in page.
 
@@ -23,10 +23,10 @@ The app creates its SQLite tables on first access in data/gatherly.db, or at DAT
 
 ## Verification
 
-Run npm run type-check, npm run lint, npm test, and npm run build. The complete automated suite includes route, service, authentication, budget, timeline, and quote tests. A webpack build may be needed in Windows environments where the Node shim interferes with Turbopack subprocesses.
+Run `npm run verify` and `npm run test:e2e`. The browser suite checks guest and cross-account isolation, plan review for the three required event types, and serious axe violations across the workspace. `npm run build` uses Webpack for the same build path in local development, CI, and Docker.
 
 ## Scope and limits
 
 This is a single-process SQLite application. It does not process payments, verify email ownership, reset passwords, manage individual guest RSVPs, contact vendors, or book services. AI suggestions and extracted quote fields require human review. Uploaded PDF bytes are sent to Gemini when the API key is configured; avoid uploading documents you do not want processed by that provider. The offline PDF heuristic cannot reliably read scanned or compressed PDFs.
 
-See DESIGN.md for the visual system and docs/DESIGN_RESEARCH.md for frontend research. See docs/PRODUCT_SPEC.md for the actual workflow, docs/ARCHITECTURE.md for the code map, docs/SECURITY_AND_PRIVACY.md for security boundaries, docs/RESEARCH.md for independent research, and docs/REVIEW.md for the initial audit that led to these fixes.
+See [release evidence](docs/RELEASE_EVIDENCE.md) for verified checks and remaining gates. DESIGN.md records the visual system, and docs/PRODUCT_SPEC.md, docs/ARCHITECTURE.md, docs/SECURITY_AND_PRIVACY.md, docs/RESEARCH.md, and docs/IMPROVEMENT_PLAN.md cover the product, code, security, research, and improvement decisions.

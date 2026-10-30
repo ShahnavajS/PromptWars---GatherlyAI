@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { formatINR } from '@/lib/domain/formatting';
 import QuoteComparisonView from './QuoteComparisonView';
 import QuotationExtractionModal from './QuotationExtractionModal';
+import VendorQuoteForm from './VendorQuoteForm';
 import { ExtractedQuotationCandidate } from '@/lib/services/quotationExtractionService';
 
 interface Vendor {
@@ -107,15 +108,6 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
     notes: '',
   });
 
-  const [quoteForm, setQuoteForm] = useState({
-    quoteTitle: '',
-    quotedAmountRupees: '',
-    quoteDate: '',
-    inclusions: '',
-    exclusions: '',
-    cancellationPolicy: '',
-    notes: '',
-  });
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -261,57 +253,6 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
       }
     } catch {
       alert('Error deleting vendor.');
-    }
-  };
-
-  const handleAddQuote = async (vendorId: string) => {
-    if (!quoteForm.quoteTitle.trim() || !quoteForm.quoteDate) {
-      alert('Quote title and date are required.');
-      return;
-    }
-    const amountPaise = Math.round(parseFloat(quoteForm.quotedAmountRupees || '0') * 100);
-    if (amountPaise < 0 || !Number.isInteger(amountPaise)) {
-      alert('Invalid quote amount.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const inclusions = quoteForm.inclusions
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const exclusions = quoteForm.exclusions
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean);
-
-      const res = await fetch(`/api/events/${eventId}/quotes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vendorId,
-          quoteTitle: quoteForm.quoteTitle,
-          quotedAmountPaise: amountPaise,
-          quoteDate: quoteForm.quoteDate,
-          inclusions,
-          exclusions,
-          cancellationPolicy: quoteForm.cancellationPolicy || null,
-          notes: quoteForm.notes || null,
-        }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        await fetchData();
-        setAddingQuoteForVendor(null);
-        setQuoteForm({ quoteTitle: '', quotedAmountRupees: '', quoteDate: '', inclusions: '', exclusions: '', cancellationPolicy: '', notes: '' });
-        showToast('Quote added!');
-      } else {
-        alert(json.error || 'Failed to add quote.');
-      }
-    } catch {
-      alert('Error adding quote.');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -593,7 +534,7 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
                                   {summary.count > 1 ? ` – ${formatINR(summary.max)}` : ''}
                                 </span>
                               ) : (
-                                <span className="text-slate-400">No quotes</span>
+                                <span className="text-slate-600">No quotes</span>
                               )}
                             </div>
                           </span>
@@ -664,91 +605,9 @@ export default function VendorHub({ eventId, categories }: VendorHubProps) {
 
                             {/* Add Quote Form */}
                             {addingQuoteForVendor === vendor.id ? (
-                              <div className="rounded-2xl border border-[#d5e1d3] bg-white p-4 space-y-3">
-                                <h4 className="text-sm font-bold text-slate-800">Add Quote</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Quote Title *</label>
-                                    <input
-                                      aria-label="Quote title"
-                                      type="text"
-                                      value={quoteForm.quoteTitle}
-                                      onChange={(e) => setQuoteForm((f) => ({ ...f, quoteTitle: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Amount (₹) *</label>
-                                    <input
-                                      aria-label="Quote amount in rupees"
-                                      type="number"
-                                      min={0}
-                                      value={quoteForm.quotedAmountRupees}
-                                      onChange={(e) => setQuoteForm((f) => ({ ...f, quotedAmountRupees: e.target.value }))}
-                                      placeholder="0"
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Date *</label>
-                                    <input
-                                      aria-label="Quote date"
-                                      type="date"
-                                      value={quoteForm.quoteDate}
-                                      onChange={(e) => setQuoteForm((f) => ({ ...f, quoteDate: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Cancellation Policy</label>
-                                    <input
-                                      aria-label="Quote cancellation policy"
-                                      type="text"
-                                      value={quoteForm.cancellationPolicy}
-                                      onChange={(e) => setQuoteForm((f) => ({ ...f, cancellationPolicy: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Inclusions (one per line)</label>
-                                    <textarea
-                                      aria-label="Quote inclusions, one per line"
-                                      rows={3}
-                                      value={quoteForm.inclusions}
-                                      onChange={(e) => setQuoteForm((f) => ({ ...f, inclusions: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-xs font-bold text-slate-700 mb-1">Exclusions (one per line)</label>
-                                    <textarea
-                                      aria-label="Quote exclusions, one per line"
-                                      rows={3}
-                                      value={quoteForm.exclusions}
-                                      onChange={(e) => setQuoteForm((f) => ({ ...f, exclusions: e.target.value }))}
-                                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#285942]"
-                                    />
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => handleAddQuote(vendor.id)}
-                                    disabled={saving}
-                                    className="rounded-lg bg-[#285942] px-3 py-2 text-xs font-bold text-white hover:bg-[#1e4734] disabled:opacity-50"
-                                  >
-                                    {saving ? 'Saving...' : 'Add Quote'}
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setAddingQuoteForVendor(null);
-                                      setQuoteForm({ quoteTitle: '', quotedAmountRupees: '', quoteDate: '', inclusions: '', exclusions: '', cancellationPolicy: '', notes: '' });
-                                    }}
-                                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
+                              <VendorQuoteForm eventId={eventId} vendorId={vendor.id}
+                                onSaved={async () => { await fetchData(); setAddingQuoteForVendor(null); showToast('Quote added!'); }}
+                                onCancel={() => setAddingQuoteForVendor(null)} />
                             ) : (
                               <button
                                 onClick={() => setAddingQuoteForVendor(vendor.id)}
